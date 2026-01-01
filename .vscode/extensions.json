@@ -1,7 +1,24 @@
 {
-  "recommendations": [
-    "mechatroner.rainbow-csv",
-    "eamodio.gitlens",
-    "adam-bender.commit-message-editor"
-  ]
+    "recommendations": [
+        "mechatroner.rainbow-csv",
+        "biomejs.biome",
+        "blanu.vscode-styled-jsx",
+        "christian-kohler.npm-intellisense",
+        "christian-kohler.path-intellisense",
+        "dotenv.dotenv-vscode",
+        "formulahendry.auto-close-tag",
+        "formulahendry.auto-rename-tag",
+        "jonathan-yeung.mark-sharp",
+        "lea21st.vscode-sql-formatter",
+        "mguellsegarra.highlight-on-copy",
+        "mikestead.dotenv",
+        "ms-vscode-remote.remote-ssh",
+        "ms-vscode-remote.remote-ssh-edit",
+        "ms-vscode-remote.remote-wsl",
+        "ms-vscode.remote-explorer",
+        "pmneo.tsimporter",
+        "renesaarsoo.sql-formatter-vsc",
+        "steoates.autoimport",
+        "unifiedjs.vscode-mdx"
+    ]
 }
