@@ -5,11 +5,16 @@
     "types": "dist/index.d.ts",
     "files": ["dist"],
     "scripts": {
-        "build": "babel . --extensions \".js\" --ignore \"./lib/**\",\"./node_modules/**\" --out-dir ./lib",
+        "build": "tsc -p tsconfig.json",
         "test": "node -e \"console.log('no tests yet')\"",
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
         "progress": "^2.0.3"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.0",
+        "@types/node": "^22.10.1",
+        "@types/progress": "^2.0.7"
     }
 }

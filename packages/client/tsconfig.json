@@ -1,4 +1,14 @@
 {
     "extends": "../../tsconfig.base.json",
-    "include": ["**/*.js", "**/*.ts"]
+    "compilerOptions": {
+        "noEmit": false,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "outDir": "dist",
+        "rootDir": ".",
+        "allowJs": false,
+        "checkJs": false
+    },
+    "include": ["**/*.ts"]
 }

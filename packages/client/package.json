@@ -2,14 +2,25 @@
     "name": "@repo/addressr-client",
     "private": true,
     "type": "commonjs",
+    "main": "dist/elasticsearch.js",
+    "types": "dist/elasticsearch.d.ts",
+    "files": ["dist"],
+    "exports": {
+        ".": "./dist/elasticsearch.js",
+        "./elasticsearch": "./dist/elasticsearch.js"
+    },
     "scripts": {
-        "build": "babel . --extensions \".js\" --ignore \"./lib/**\",\"./node_modules/**\" --out-dir ./lib",
+        "build": "tsc -p tsconfig.json",
         "test": "node -e \"console.log('no tests yet')\"",
-        "typecheck": "tsc -p tsconfig.json"
+        "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
         "@opensearch-project/opensearch": "^2.13.0",
         "debug": "^4.4.3",
         "wait-port": "^0.2.14"
+    },
+    "devDependencies": {
+        "@types/debug": "^4.1.12",
+        "@types/node": "^22.10.1"
     }
 }
