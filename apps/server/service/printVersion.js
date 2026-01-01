@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
 import { version } from "@repo/addressr-core/version";
+import dotenv from "dotenv";
 
 dotenv.config();
 

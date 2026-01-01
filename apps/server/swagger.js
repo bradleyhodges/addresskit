@@ -16,14 +16,14 @@ error.log = console.error.bind(console); // eslint-disable-line no-console
 
 // swaggerRouter configuration
 const options = {
-    swaggerUi: pathUtil.join(__dirname, "../web/api/swagger.json"),
+    swaggerUi: pathUtil.join(__dirname, "./api/swagger.json"),
     controllers: pathUtil.join(__dirname, "./controllers"),
     useStubs: process.env.NODE_ENV === "development", // Conditionally turn on stubs (mock mode)
 };
 
 // The Swagger document (require it, build it programmatically, fetch it from a URL, ...)
 const spec = readFileSync(
-    pathUtil.join(__dirname, "../web/api/swagger.yaml"),
+    pathUtil.join(__dirname, "./api/swagger.yaml"),
     "utf8",
 );
 export const swaggerDoc = safeLoad(spec);

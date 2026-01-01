@@ -1,8 +1,8 @@
+import * as fs from "node:fs";
+import * as http from "node:https";
+import * as pathUtil from "node:path";
 import { parse } from "node:url";
-import http from "node:https";
-import fs from "node:fs";
-import pathUtil from "node:path";
-import ProgressBar from "progress";
+import * as ProgressBar from "progress";
 
 export default (url, path, size) => {
     const uri = parse(url);

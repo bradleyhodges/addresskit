@@ -1,9 +1,9 @@
+import { writeJson } from "@repo/addressr-core/utils/writer.js";
 import debug from "debug";
 import {
     getAddress as _getAddress,
     getAddresses as _getAddresses,
 } from "../service/address-service";
-import { writeJson } from "@repo/addressr-core/utils/writer.js";
 const logger = debug("api");
 
 export function getAddress(request, response) {

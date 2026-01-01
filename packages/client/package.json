@@ -4,7 +4,8 @@
     "type": "commonjs",
     "scripts": {
         "build": "babel . --extensions \".js\" --ignore \"./lib/**\",\"./node_modules/**\" --out-dir ./lib",
-        "test": "node -e \"console.log('no tests yet')\""
+        "test": "node -e \"console.log('no tests yet')\"",
+        "typecheck": "tsc -p tsconfig.json"
     },
     "dependencies": {
         "@opensearch-project/opensearch": "^2.13.0",

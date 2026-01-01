@@ -120,6 +120,9 @@ importers:
       '@mountainpass/waychaser':
         specifier: ^4.0.38
         version: 4.0.38
+      '@types/node':
+        specifier: ^25.0.3
+        version: 25.0.3
       '@windyroad/cucumber-js-throwables':
         specifier: ^1.0.4
         version: 1.0.4(cucumber@5.1.0)
@@ -216,6 +219,9 @@ importers:
       turbo:
         specifier: ^2.7.2
         version: 2.7.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   apps/server:
     dependencies:
@@ -5474,6 +5480,11 @@ packages:
   typedarray@0.0.6:
     resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
 
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   uglify-js@3.19.3:
     resolution: {integrity: sha512-v3Xu+yuwBXisp6QYTcH4UbH+xYJXqnq2m/LtQVWKWzYc1iehYnLixoQDN9FH6/j9/oybfd6W9Ghwkl8+UMKTKQ==}
     engines: {node: '>=0.8.0'}
@@ -6864,7 +6875,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 8.10.66
+      '@types/node': 25.0.3
       '@types/responselike': 1.0.3
 
   '@types/glob@7.2.0':
@@ -6912,7 +6923,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 8.10.66
+      '@types/node': 25.0.3
     optional: true
 
   '@windyroad/cucumber-js-throwables@1.0.4(cucumber@5.1.0)':
@@ -12139,6 +12150,8 @@ snapshots:
       typed-array-byte-offset: 1.0.4
 
   typedarray@0.0.6: {}
+
+  typescript@5.9.3: {}
 
   uglify-js@3.19.3:
     optional: true

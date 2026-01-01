@@ -1,10 +1,10 @@
 import crypto from "node:crypto";
 import { createServer } from "node:http";
 import { WayCharter } from "@mountainpass/waycharter";
+import { version } from "@repo/addressr-core/version";
 import debug from "debug";
 import express from "express";
 import { getAddress, searchForAddress } from "../service/address-service";
-import { version } from "@repo/addressr-core/version";
 
 const app = express();
 

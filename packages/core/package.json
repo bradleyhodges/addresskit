@@ -1,10 +1,13 @@
 {
     "name": "@repo/addressr-core",
     "private": true,
-    "type": "commonjs",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": ["dist"],
     "scripts": {
         "build": "babel . --extensions \".js\" --ignore \"./lib/**\",\"./node_modules/**\" --out-dir ./lib",
-        "test": "node -e \"console.log('no tests yet')\""
+        "test": "node -e \"console.log('no tests yet')\"",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
         "progress": "^2.0.3"

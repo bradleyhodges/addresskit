@@ -1,6 +1,6 @@
-import waitPort from "wait-port";
 import elasticsearch from "@opensearch-project/opensearch";
 import debug from "debug";
+import waitPort from "wait-port";
 const logger = debug("api");
 const error = debug("error");
 

@@ -2,6 +2,11 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import stream from "node:stream";
+import {
+    dropIndex as dropESIndex,
+    initIndex,
+} from "@repo/addressr-client/elasticsearch";
+import download from "@repo/addressr-core/utils/stream-down";
 /* eslint-disable eslint-comments/disable-enable-pair */
 /* eslint-disable security/detect-non-literal-regexp */
 /* eslint-disable security/detect-object-injection */
@@ -15,11 +20,6 @@ import Keyv from "keyv";
 import { KeyvFile } from "keyv-file";
 import Papa from "papaparse";
 import unzip from "unzip-stream";
-import {
-    dropIndex as dropESIndex,
-    initIndex,
-} from "@repo/addressr-client/elasticsearch";
-import download from "@repo/addressr-core/utils/stream-down";
 import { setLinkOptions } from "./setLinkOptions";
 
 const fsp = fs.promises;

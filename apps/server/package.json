@@ -7,7 +7,8 @@
         "dev": "set DEBUG=error,api,express:*,swagger-tools*,test,es && pnpm exec babel-node server.js",
         "start": "pnpm exec babel-node server.js",
         "build": "babel . --extensions \".js\" --ignore \"./lib/**\",\"./node_modules/**\" --out-dir ./lib",
-        "test": "node -e \"console.log('no tests yet')\""
+        "test": "node -e \"console.log('no tests yet')\"",
+        "typecheck": "tsc -p tsconfig.json"
     },
     "dependencies": {
         "@mountainpass/waycharter": "^1.0.76",

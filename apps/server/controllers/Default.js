@@ -1,6 +1,6 @@
+import { writeJson } from "@repo/addressr-core/utils/writer.js";
 // import debug from 'debug';
 import { getApiRoot as _getApiRoot } from "../service/DefaultService";
-import { writeJson } from "@repo/addressr-core/utils/writer.js";
 // var logger = debug('api');
 
 export function getApiRoot(request, res) {
