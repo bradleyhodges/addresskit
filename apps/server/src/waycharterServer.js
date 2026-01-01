@@ -4,7 +4,7 @@ import { WayCharter } from "@mountainpass/waycharter";
 import debug from "debug";
 import express from "express";
 import { getAddress, searchForAddress } from "../service/address-service";
-import { version } from "../version";
+import { version } from "@repo/addressr-core/version";
 
 const app = express();
 
@@ -98,17 +98,16 @@ export function startRest2Server() {
                     },
                 };
             }
-            
-                // If-None-Match
-                return {
-                    body: [],
-                    hasMore: false,
-                    headers: {
-                        etag: `"${version}"`,
-                        "cache-control": `public, max-age=${ONE_WEEK}`,
-                    },
-                };
-            
+
+            // If-None-Match
+            return {
+                body: [],
+                hasMore: false,
+                headers: {
+                    etag: `"${version}"`,
+                    "cache-control": `public, max-age=${ONE_WEEK}`,
+                },
+            };
         },
         filters: [
             {

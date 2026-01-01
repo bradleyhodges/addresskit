@@ -1,6 +1,6 @@
 {
     "name": "@bradleyhodges/addressr",
-    "version": "1.1.3",
+    "version": "2.0.0",
     "description": "Australian Address Validation, Search and Autocomplete",
     "packageManager": "pnpm@10.22.0",
     "publishConfig": {
@@ -15,7 +15,7 @@
     },
     "scripts": {
         "dev": "turbo run dev --parallel",
-        "smoke": "bash tooling/smoke/smoke.sh",
+        "smoke": "node tooling/smoke/smoke.mjs",
         "format": "biome check . --write --skip-errors",
         "clean": "git clean -xdf node_modules",
         "gen-install-cmd": "echo \"#!/bin/sh\n\nnpm install -g ${npm_package_name}@${npm_package_version}\" > install.sh",
@@ -27,7 +27,7 @@
         "pull:open-search": "docker pull ${npm_package_config_SEARCH_IMAGE}",
         "start:open-search": "docker run -p 9200:9200 -p 9300:9300 -e \"ES_JAVA_OPTS=-Xms1g -Xmx1g\" -e \"discovery.type=single-node\" -e \"plugins.security.disabled=true\" \"${npm_package_config_SEARCH_IMAGE}\"",
         "hmm": "echo mountainpass-addressr-${npm_package_version}.tgz",
-        "requirements-check": "node scripts/check-version.js",
+        "requirements-check": "node tooling/scripts/check-version.js",
         "postinstall": "npm run requirements-check",
         "prestart:loader:babel:OT": "npm run build && cp -r target lib/.",
         "start:loader:babel:OT": "ES_INDEX_NAME=ot COVERED_STATES=OT DEBUG=error,api,express:*,swagger-tools*,test,es PORT=$npm_package_config_localport node lib/loader.js",
@@ -75,7 +75,7 @@
         "test:nogeo": "NO_STRICT=' ' npm-run-all --serial test:nodejs:nogeo test:rest:nogeo test:cli:nogeo",
         "test:geo": "NO_STRICT=' ' npm-run-all --serial test:nodejs:geo test:rest:geo test:cli:geo",
         "watch:test": "nodemon -V  --ext \"*.feature, *.js, *.json, *.css, *.yaml\" -x npm -- run test",
-        "genversion": "genversion --es6 --semi version.js",
+        "genversion": "genversion --es6 --semi ./packages/core/version.js",
         "pretest:nodejs:nogeo": "npm run genversion",
         "test:nodejs:nogeo": "ES_INDEX_NAME=test COVERED_STATES=OT DEBUG=error,api,express:*,swagger-tools*,test,es TEST_PROFILE=default cucumber-js -p default -- --harmony_async_iteration",
         "cover:nodejs:nogeo": "nyc --report-dir coverage/nodejs --temp-dir coverage/nodejs/.nyc_output npm run test:nodejs:nogeo",
@@ -124,13 +124,7 @@
         "addressr-server": "lib/bin/addressr-server.js",
         "addressr-server-2": "lib/bin/addressr-server-2.js"
     },
-    "files": [
-        "api/",
-        "lib/",
-        "scripts/check-version.js",
-        "20160226-eula-open-g-naf.pdf",
-        "example.html"
-    ],
+    "files": ["tooling/scripts/check-version.js"],
     "keywords": [
         "swagger",
         "g-naf",

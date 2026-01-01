@@ -1,0 +1,11 @@
+{
+    "name": "@repo/addressr-core",
+    "private": true,
+    "type": "commonjs",
+    "scripts": {
+        "test": "node -e \"console.log('no tests yet')\""
+    },
+    "dependencies": {
+        "progress": "^2.0.3"
+    }
+}

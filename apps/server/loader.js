@@ -1,5 +1,5 @@
 import debug from "debug";
-import { esConnect } from "./client/elasticsearch";
+import { esConnect } from "@repo/addressr-client/elasticsearch";
 import { loadGnaf } from "./service/address-service";
 import { printVersion } from "./service/printVersion";
 const logger = debug("api");

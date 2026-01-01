@@ -1,0 +1,13 @@
+{
+    "name": "@repo/addressr-client",
+    "private": true,
+    "type": "commonjs",
+    "scripts": {
+        "test": "node -e \"console.log('no tests yet')\""
+    },
+    "dependencies": {
+        "@opensearch-project/opensearch": "^2.13.0",
+        "debug": "^4.4.3",
+        "wait-port": "^0.2.14"
+    }
+}

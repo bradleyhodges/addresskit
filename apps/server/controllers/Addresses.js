@@ -3,12 +3,12 @@ import {
     getAddress as _getAddress,
     getAddresses as _getAddresses,
 } from "../service/address-service";
-import { writeJson } from "../utils/writer.js";
-var logger = debug("api");
+import { writeJson } from "@repo/addressr-core/utils/writer.js";
+const logger = debug("api");
 
 export function getAddress(request, response) {
     logger("IN getAddress");
-    var addressId = request.swagger.params["addressId"].value;
+    const addressId = request.swagger.params.addressId.value;
     _getAddress(addressId).then((addressResponse) => {
         if (addressResponse.statusCode) {
             response.setHeader("Content-Type", "application/json");
@@ -23,8 +23,8 @@ export function getAddress(request, response) {
 }
 
 export function getAddresses(request, response) {
-    var q = request.swagger.params["q"].value;
-    var p = request.swagger.params["p"].value;
+    const q = request.swagger.params.q.value;
+    const p = request.swagger.params.p.value;
     const url = new URL(
         request.url,
         `http://localhost:${process.env.port || 8080}`,
