@@ -1,29 +1,29 @@
-import { readFileSync } from "fs";
-import { createServer } from "http";
-import pathUtil from "path";
+import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import pathUtil from "node:path";
 //import connect from 'connect';
 import debug from "debug";
 import express from "express";
 import { safeLoad } from "js-yaml";
 import { initializeMiddleware } from "swagger-tools";
 
-var app = express();
+const app = express();
 
-var serverPort = process.env.PORT || 8080;
-var logger = debug("api");
-var error = debug("error");
+const serverPort = process.env.PORT || 8080;
+const logger = debug("api");
+const error = debug("error");
 error.log = console.error.bind(console); // eslint-disable-line no-console
 
 // swaggerRouter configuration
-var options = {
+const options = {
     swaggerUi: pathUtil.join(__dirname, "/swagger.json"),
     controllers: pathUtil.join(__dirname, "./controllers"),
     useStubs: process.env.NODE_ENV === "development", // Conditionally turn on stubs (mock mode)
 };
 
 // The Swagger document (require it, build it programmatically, fetch it from a URL, ...)
-var spec = readFileSync(pathUtil.join(__dirname, "api/swagger.yaml"), "utf8");
-export var swaggerDoc = safeLoad(spec);
+const spec = readFileSync(pathUtil.join(__dirname, "api/swagger.yaml"), "utf8");
+export const swaggerDoc = safeLoad(spec);
 
 global.swaggerDoc = swaggerDoc;
 
@@ -69,7 +69,7 @@ export function swaggerInit() {
                     }
                     if (error_.results) {
                         rehydratedError.errors = error_.results.errors;
-                        delete rehydratedError.results;
+                        rehydratedError.results = undefined;
                     }
                     error(
                         "error!!!",

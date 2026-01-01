@@ -5,7 +5,7 @@ import { printVersion } from "./service/printVersion";
 const logger = debug("api");
 const error = debug("error");
 
-if (process.env.DEBUG == undefined) {
+if (process.env.DEBUG === undefined) {
     debug.enable("api,error");
 }
 
@@ -29,7 +29,7 @@ esConnect()
         logger(`Execution time: ${end[0]}s ${end[1] / 1000000}ms`);
     })
     .then(() => {
-        logger(`Fin`);
+        logger("Fin");
         process.exit();
     })
     .catch((error_) => {

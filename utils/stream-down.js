@@ -1,12 +1,13 @@
-const { parse } = require("url");
-const http = require("https");
-const fs = require("fs");
-const pathUtil = require("path");
+const { parse } = require("node:url");
+const http = require("node:https");
+const fs = require("node:fs");
+const pathUtil = require("node:path");
 import ProgressBar from "progress";
 
 module.exports = (url, path, size) => {
     const uri = parse(url);
     if (!path) {
+        // biome-ignore lint/style/noParameterAssign: This is a workaround to allow the function to be called with a path parameter
         path = pathUtil.basename(uri.path);
     }
     const file = fs.createWriteStream(path);
@@ -18,7 +19,7 @@ module.exports = (url, path, size) => {
                 : size;
             //   let downloaded = 0;
             //   let percent = 0;
-            var bar = new ProgressBar(
+            const bar = new ProgressBar(
                 "  downloading [:bar] :rate/bps :percent :etas",
                 {
                     complete: "=",

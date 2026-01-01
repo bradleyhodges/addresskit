@@ -1,7 +1,7 @@
-import crypto from "crypto";
-import fs from "fs";
-import path from "path";
-import stream from "stream";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import stream from "node:stream";
 /* eslint-disable eslint-comments/disable-enable-pair */
 /* eslint-disable security/detect-non-literal-regexp */
 /* eslint-disable security/detect-object-injection */
@@ -21,8 +21,8 @@ import { setLinkOptions } from "./setLinkOptions";
 
 const fsp = fs.promises;
 
-var logger = debug("api");
-var error = debug("error");
+const logger = debug("api");
+const error = debug("error");
 
 const cache = new Keyv({
     store: new KeyvFile({ filename: "target/keyv-file.msgpack" }),
@@ -32,11 +32,10 @@ const PAGE_SIZE = process.env.PAGE_SIZE || 8;
 
 function getCoveredStates() {
     const covered = process.env.COVERED_STATES || "";
-    if (covered == "") {
+    if (covered === "") {
         return [];
-    } else {
-        return covered.split(",");
     }
+    return covered.split(",");
 }
 
 const COVERED_STATES = getCoveredStates();
@@ -60,7 +59,8 @@ export async function setAddresses(addr) {
     await clearAddresses();
 
     const indexingBody = [];
-    addr.forEach((row) => {
+
+    for (const row of addr) {
         indexingBody.push({
             index: {
                 _index: ES_INDEX_NAME,
@@ -74,7 +74,7 @@ export async function setAddresses(addr) {
             structurted,
             confidence: structurted.structurted.confidence,
         });
-    });
+    }
 
     if (indexingBody.length > 0) {
         await sendIndexRequest(indexingBody);
@@ -126,7 +126,7 @@ async function fetchPackageData() {
         // we were unable to fetch. if we have cached value that isn't stale, return in
         if (cachedResponse !== undefined) {
             if (age < THIRTY_DAYS_MS) {
-                cachedResponse.headers["warning"] =
+                cachedResponse.headers.warning =
                     '110	custom/1.0 "Response is Stale"';
                 return cachedResponse;
             }
@@ -136,7 +136,7 @@ async function fetchPackageData() {
     }
 }
 
-const GNAF_DIR = process.env.GNAF_DIR || `target/gnaf`;
+const GNAF_DIR = process.env.GNAF_DIR || "target/gnaf";
 
 export async function fetchGnafFile() {
     const response = await fetchPackageData();
@@ -207,136 +207,117 @@ export async function unzipFile(file) {
         logger("directory exits. Skipping extract", complete_path);
         // already extracted. Move along.
         return complete_path;
-    } else {
-        await new Promise((resolve, reject) => {
-            fs.mkdir(incomplete_path, { recursive: true }, (error_) => {
-                if (error_) reject(error_);
-                else resolve();
-            });
+    }
+
+    await new Promise((resolve, reject) => {
+        fs.mkdir(incomplete_path, { recursive: true }, (error_) => {
+            if (error_) reject(error_);
+            else resolve();
         });
-        const readStream = fs.createReadStream(file);
-        logger("before pipe");
-        const prom = new Promise((resolve, reject) => {
-            readStream
-                .pipe(unzip.Parse())
-                .pipe(
-                    stream.Transform({
-                        objectMode: true,
-                        transform: (entry, encoding, callback) => {
-                            const entryPath = `${incomplete_path}/${entry.path}`;
-                            if (entry.isDirectory) {
-                                fs.mkdir(
-                                    entryPath,
-                                    { recursive: true },
-                                    (error_) => {
-                                        if (error_) {
+    });
+    const readStream = fs.createReadStream(file);
+    logger("before pipe");
+    const prom = new Promise((resolve, reject) => {
+        readStream
+            .pipe(unzip.Parse())
+            .pipe(
+                stream.Transform({
+                    objectMode: true,
+                    transform: (entry, encoding, callback) => {
+                        const entryPath = `${incomplete_path}/${entry.path}`;
+                        if (entry.isDirectory) {
+                            fs.mkdir(
+                                entryPath,
+                                { recursive: true },
+                                (error_) => {
+                                    if (error_) {
+                                        entry.autodrain();
+                                        callback(error_);
+                                    } else {
+                                        entry.autodrain();
+                                        callback();
+                                    }
+                                },
+                            );
+                        } else {
+                            const dirname = path.dirname(entryPath);
+                            fs.mkdir(dirname, { recursive: true }, (error_) => {
+                                if (error_) {
+                                    entry.autodrain();
+                                    callback(error_);
+                                } else {
+                                    fs.stat(entryPath, (error_, stats) => {
+                                        if (
+                                            error_ &&
+                                            error_.code !== "ENOENT"
+                                        ) {
+                                            logger(
+                                                "error statting file",
+                                                error_,
+                                            );
                                             entry.autodrain();
                                             callback(error_);
-                                        } else {
+                                            return;
+                                        }
+                                        if (
+                                            stats !== undefined &&
+                                            stats.size === entry.size
+                                        ) {
+                                            // no need to extract again. Skip
+                                            logger(
+                                                "skipping extract for",
+                                                entryPath,
+                                            );
                                             entry.autodrain();
                                             callback();
-                                        }
-                                    },
-                                );
-                            } else {
-                                const dirname = path.dirname(entryPath);
-                                fs.mkdir(
-                                    dirname,
-                                    { recursive: true },
-                                    (error_) => {
-                                        if (error_) {
-                                            entry.autodrain();
-                                            callback(error_);
                                         } else {
-                                            fs.stat(
-                                                entryPath,
-                                                (error_, stats) => {
-                                                    if (
-                                                        error_ &&
-                                                        error_.code !== "ENOENT"
-                                                    ) {
-                                                        logger(
-                                                            "error statting file",
-                                                            error_,
-                                                        );
-                                                        entry.autodrain();
-                                                        callback(error_);
-                                                        return;
-                                                    }
-                                                    if (
-                                                        stats != undefined &&
-                                                        stats.size ===
-                                                            entry.size
-                                                    ) {
-                                                        // no need to extract again. Skip
-                                                        logger(
-                                                            "skipping extract for",
-                                                            entryPath,
-                                                        );
-                                                        entry.autodrain();
-                                                        callback();
-                                                    } else {
-                                                        // size is different, so extract the file
-                                                        logger(
-                                                            "extracting",
-                                                            entryPath,
-                                                        );
-                                                        entry
-                                                            .pipe(
-                                                                fs.createWriteStream(
-                                                                    entryPath,
-                                                                ),
-                                                            )
-                                                            .on(
-                                                                "finish",
-                                                                () => {
-                                                                    logger(
-                                                                        "finished extracting",
-                                                                        entryPath,
-                                                                    );
-                                                                    callback();
-                                                                },
-                                                            )
-                                                            .on(
-                                                                "error",
-                                                                (error) => {
-                                                                    logger(
-                                                                        "error unzipping entry",
-                                                                        error,
-                                                                    );
-                                                                    callback(
-                                                                        error,
-                                                                    );
-                                                                },
-                                                            );
-                                                    }
-                                                },
-                                            );
+                                            // size is different, so extract the file
+                                            logger("extracting", entryPath);
+                                            entry
+                                                .pipe(
+                                                    fs.createWriteStream(
+                                                        entryPath,
+                                                    ),
+                                                )
+                                                .on("finish", () => {
+                                                    logger(
+                                                        "finished extracting",
+                                                        entryPath,
+                                                    );
+                                                    callback();
+                                                })
+                                                .on("error", (error) => {
+                                                    logger(
+                                                        "error unzipping entry",
+                                                        error,
+                                                    );
+                                                    callback(error);
+                                                });
                                         }
-                                    },
-                                );
-                            }
-                        },
-                    }),
-                )
-                .on("finish", () => {
-                    logger("finish");
-                    resolve();
-                })
-                .on("error", (error_) => {
-                    logger("error unzipping data file", error_);
-                    reject(error_);
-                });
-        });
-        await prom;
-
-        return await new Promise((resolve, reject) => {
-            fs.rename(incomplete_path, complete_path, (error_) => {
-                if (error_) reject(error_);
-                else resolve(complete_path);
+                                    });
+                                }
+                            });
+                        }
+                    },
+                }),
+            )
+            .on("finish", () => {
+                logger("finish");
+                resolve();
+            })
+            .on("error", (error_) => {
+                logger("error unzipping data file", error_);
+                reject(error_);
             });
+    });
+    await prom;
+
+    return await new Promise((resolve, reject) => {
+        fs.rename(incomplete_path, complete_path, (error_) => {
+            if (error_) reject(error_);
+            else resolve(complete_path);
         });
-    }
+    });
 }
 
 // function cleanProperty(p, v) {
@@ -346,7 +327,7 @@ export async function unzipFile(file) {
 // }
 
 function levelTypeCodeToName(code, context, address) {
-    const found = context["Authority_Code_LEVEL_TYPE_AUT_psv"].find(
+    const found = context.Authority_Code_LEVEL_TYPE_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -358,7 +339,7 @@ function levelTypeCodeToName(code, context, address) {
 }
 
 function flatTypeCodeToName(code, context, address) {
-    const found = context["Authority_Code_FLAT_TYPE_AUT_psv"].find(
+    const found = context.Authority_Code_FLAT_TYPE_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -370,7 +351,7 @@ function flatTypeCodeToName(code, context, address) {
 }
 
 function streetTypeCodeToName(code, context) {
-    const found = context["Authority_Code_STREET_TYPE_AUT_psv"].find(
+    const found = context.Authority_Code_STREET_TYPE_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -381,7 +362,7 @@ function streetTypeCodeToName(code, context) {
 }
 
 function streetClassCodeToName(code, context) {
-    const found = context["Authority_Code_STREET_CLASS_AUT_psv"].find(
+    const found = context.Authority_Code_STREET_CLASS_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -392,7 +373,7 @@ function streetClassCodeToName(code, context) {
 }
 
 function localityClassCodeToName(code, context) {
-    const found = context["Authority_Code_LOCALITY_CLASS_AUT_psv"].find(
+    const found = context.Authority_Code_LOCALITY_CLASS_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -403,7 +384,7 @@ function localityClassCodeToName(code, context) {
 }
 
 function streetSuffixCodeToName(code, context) {
-    const found = context["Authority_Code_STREET_SUFFIX_AUT_psv"].find(
+    const found = context.Authority_Code_STREET_SUFFIX_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -414,7 +395,7 @@ function streetSuffixCodeToName(code, context) {
 }
 
 function geocodeReliabilityCodeToName(code, context) {
-    const found = context["Authority_Code_GEOCODE_RELIABILITY_AUT_psv"].find(
+    const found = context.Authority_Code_GEOCODE_RELIABILITY_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -425,7 +406,7 @@ function geocodeReliabilityCodeToName(code, context) {
 }
 
 function geocodeTypeCodeToName(code, context) {
-    const found = context["Authority_Code_GEOCODE_TYPE_AUT_psv"].find(
+    const found = context.Authority_Code_GEOCODE_TYPE_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -436,7 +417,7 @@ function geocodeTypeCodeToName(code, context) {
 }
 
 function levelGeocodedCodeToName(code, context) {
-    const found = context["Authority_Code_GEOCODED_LEVEL_TYPE_AUT_psv"].find(
+    const found = context.Authority_Code_GEOCODED_LEVEL_TYPE_AUT_psv.find(
         (entry) => entry.CODE === code,
     );
     if (found) {
@@ -444,7 +425,7 @@ function levelGeocodedCodeToName(code, context) {
     }
     error(
         `Unknown Geocoded Level Type Code: '${code}' in:\n${JSON.stringify(
-            context["Authority_Code_GEOCODED_LEVEL_TYPE_AUT_psv"],
+            context.Authority_Code_GEOCODED_LEVEL_TYPE_AUT_psv,
             undefined,
             2,
         )}`,
@@ -495,7 +476,7 @@ function mapStreetLocality(l, context) {
 function mapGeo(geoSite, context, geoDefault) {
     let foundDefault = false;
     if (geoSite && geoDefault) {
-        geoSite.forEach((geo) => {
+        for (const geo of geoSite) {
             if (
                 geo.GEOCODE_TYPE_CODE === geoDefault[0].GEOCODE_TYPE_CODE &&
                 geo.LATITUDE === geoDefault[0].LATITUDE &&
@@ -506,7 +487,7 @@ function mapGeo(geoSite, context, geoDefault) {
             } else {
                 geo.default = false;
             }
-        });
+        }
     }
     const sites = geoSite
         ? geoSite.map((geo) => {
@@ -706,11 +687,11 @@ export function mapAddressDetails(d, context, i, count) {
         ? context.geoDefaultIndexed[d.ADDRESS_DETAIL_PID]
         : undefined;
     const hasGeo =
-        d.LEVEL_GEOCODED_CODE != "" &&
+        d.LEVEL_GEOCODED_CODE !== "" &&
         ((geoSite !== undefined && geoSite.length > 0) ||
             (geoDefault !== undefined && geoDefault.length > 0));
     const rval = {
-        ...(d.LEVEL_GEOCODED_CODE != "" &&
+        ...(d.LEVEL_GEOCODED_CODE !== "" &&
             hasGeo && {
                 geocoding: {
                     ...(d.LEVEL_GEOCODED_CODE !== "" && {
@@ -849,7 +830,7 @@ export function mapAddressDetails(d, context, i, count) {
     };
     rval.mla = mapToMla(rval.structured);
     rval.sla = mapToSla(rval.mla);
-    if (rval.structured.flat != undefined) {
+    if (rval.structured.flat !== undefined) {
         rval.smla = mapToShortMla(rval.structured);
         rval.ssla = mapToSla(rval.smla);
     }
@@ -894,7 +875,7 @@ async function loadAddressDetails(
                     error({ errors: chunk.errors });
                 }
                 const indexingBody = [];
-                chunk.data.forEach((row) => {
+                for (const row of chunk.data) {
                     const item = mapAddressDetails(
                         row,
                         context,
@@ -916,7 +897,7 @@ async function loadAddressDetails(
                         structured,
                         confidence: structured.structured.confidence,
                     });
-                });
+                }
 
                 if (indexingBody.length > 0) {
                     sendIndexRequest(indexingBody, undefined, { refresh })
@@ -971,7 +952,7 @@ async function loadAddressDetails(
             },
         });
     });
-    if (expectedCount !== undefined && actualCount != expectedCount) {
+    if (expectedCount !== undefined && actualCount !== expectedCount) {
         error(
             `Error loading '${file}'. Expected '${expectedCount}' rows, got '${actualCount}'`,
         );
@@ -1078,7 +1059,7 @@ async function sendIndexRequest(
     { refresh = false } = {},
 ) {
     let backoff = initialBackoff;
-    // eslint-disable-next-line no-constant-condition
+    // biome-ignore lint/correctness/noConstantCondition: This is a loop that will run until it succeeds
     for (let count = 0; true; count++) {
         try {
             const resp = await global.esClient.bulk({
@@ -1087,7 +1068,7 @@ async function sendIndexRequest(
                 timeout: process.env.ADDRESSR_INDEX_TIMEOUT || "300s",
             });
 
-            if (resp.errors || (resp.body && resp.body.errors)) {
+            if (resp.errors || resp.body?.errors) {
                 throw resp;
                 // // error(resp);
                 // // error(resp.items[0].index);
@@ -1166,16 +1147,16 @@ function buildSynonyms(context) {
     //       'SMSF, smsf, self-managed superannuation funds, self managed superannuation funds'
     //     ]
     const streetTypes = mapAuthCodeTableToSynonymList(
-        context["Authority_Code_STREET_TYPE_AUT_psv"],
+        context.Authority_Code_STREET_TYPE_AUT_psv,
     );
     const flatTypes = mapAuthCodeTableToSynonymList(
-        context["Authority_Code_FLAT_TYPE_AUT_psv"],
+        context.Authority_Code_FLAT_TYPE_AUT_psv,
     );
     const levelTypes = mapAuthCodeTableToSynonymList(
-        context["Authority_Code_LEVEL_TYPE_AUT_psv"],
+        context.Authority_Code_LEVEL_TYPE_AUT_psv,
     );
     const streetSuffixTypes = mapAuthCodeTableToSynonymList(
-        context["Authority_Code_STREET_SUFFIX_AUT_psv"],
+        context.Authority_Code_STREET_SUFFIX_AUT_psv,
     );
     const synonyms = [
         ...streetTypes,
@@ -1186,7 +1167,7 @@ function buildSynonyms(context) {
     return synonyms;
 }
 
-const { readdir } = require("fs").promises;
+const { readdir } = require("node:fs").promises;
 
 async function getFiles(currentDir, baseDir) {
     const dir = path.resolve(baseDir, currentDir);
@@ -1228,8 +1209,8 @@ async function loadGnafData(directory, { refresh = false } = {}) {
     const countsFile = `${directory}/Counts.csv`;
     const countsFileExists = await fileExists(countsFile);
 
-    let filesCounts = {},
-        files = [];
+    let filesCounts = {};
+    let files = [];
     // before may21 there was a counts file
     if (countsFileExists) {
         filesCounts = await loadFileCounts(countsFile);
@@ -1392,10 +1373,9 @@ async function loadState(files, directory, state) {
     if (stateFile === undefined) {
         error(`Could not find state file '${state}_STATE_psv.psv'`);
         return;
-    } else {
-        const name = await getStateName(state, `${directory}/${stateFile}`);
-        return name;
     }
+    const name = await getStateName(state, `${directory}/${stateFile}`);
+    return name;
 }
 
 async function loadStreetLocality(files, directory, state) {
@@ -1407,21 +1387,21 @@ async function loadStreetLocality(files, directory, state) {
             `Could not find street locality file '${state}_STREET_LOCALITY_psv.psv'`,
         );
         return [];
-    } else {
-        return await new Promise((resolve, reject) => {
-            Papa.parse(fs.createReadStream(`${directory}/${localityFile}`), {
-                header: true,
-                delimiter: "|",
-                complete: (results) => {
-                    resolve(results.data);
-                },
-                error: (error, file) => {
-                    console.log(error, file);
-                    reject(error);
-                },
-            });
-        });
     }
+
+    return await new Promise((resolve, reject) => {
+        Papa.parse(fs.createReadStream(`${directory}/${localityFile}`), {
+            header: true,
+            delimiter: "|",
+            complete: (results) => {
+                resolve(results.data);
+            },
+            error: (error, file) => {
+                console.log(error, file);
+                reject(error);
+            },
+        });
+    });
 }
 
 async function loadLocality(files, directory, state) {
@@ -1431,21 +1411,20 @@ async function loadLocality(files, directory, state) {
     if (localityFile === undefined) {
         error(`Could not find locality file '${state}_LOCALITY_psv.psv'`);
         return [];
-    } else {
-        return await new Promise((resolve, reject) => {
-            Papa.parse(fs.createReadStream(`${directory}/${localityFile}`), {
-                header: true,
-                delimiter: "|",
-                complete: (results) => {
-                    resolve(results.data);
-                },
-                error: (error, file) => {
-                    console.log(error, file);
-                    reject(error);
-                },
-            });
-        });
     }
+    return await new Promise((resolve, reject) => {
+        Papa.parse(fs.createReadStream(`${directory}/${localityFile}`), {
+            header: true,
+            delimiter: "|",
+            complete: (results) => {
+                resolve(results.data);
+            },
+            error: (error, file) => {
+                console.log(error, file);
+                reject(error);
+            },
+        });
+    });
 }
 
 async function loadSiteGeo(files, directory, state, loadContext, filesCounts) {
@@ -1459,63 +1438,56 @@ async function loadSiteGeo(files, directory, state, loadContext, filesCounts) {
             `Could not find address site geocode file '${state}_ADDRESS_SITE_GEOCODE_psv.psv'`,
         );
         return [];
-    } else {
-        const expectedCount = filesCounts[geoFile];
-        let count = 0;
+    }
 
-        return await new Promise((resolve, reject) => {
-            Papa.parse(fs.createReadStream(`${directory}/${geoFile}`), {
-                header: true,
-                delimiter: "|",
-                chunk: (chunk, parser) => {
-                    parser.pause();
-                    if (chunk.errors.length > 0) {
-                        error(
-                            `Errors reading '${directory}/${geoFile}': ${chunk.errors}`,
-                        );
-                        error({ errors: chunk.errors });
-                    } else {
-                        chunk.data.forEach((row) => {
-                            if (expectedCount) {
-                                if (
-                                    count % Math.ceil(expectedCount / 100) ===
-                                    0
-                                ) {
-                                    logger(
-                                        `${Math.floor(
-                                            (count / expectedCount) * 100,
-                                        )}% (${count}/ ${expectedCount})`,
-                                    );
-                                }
-                            }
-                            const g = row;
-                            if (
-                                loadContext.geoIndexed[g.ADDRESS_SITE_PID] ===
-                                undefined
-                            ) {
-                                loadContext.geoIndexed[g.ADDRESS_SITE_PID] = [
-                                    g,
-                                ];
-                            } else {
-                                loadContext.geoIndexed[g.ADDRESS_SITE_PID].push(
-                                    g,
+    const expectedCount = filesCounts[geoFile];
+    let count = 0;
+
+    return await new Promise((resolve, reject) => {
+        Papa.parse(fs.createReadStream(`${directory}/${geoFile}`), {
+            header: true,
+            delimiter: "|",
+            chunk: (chunk, parser) => {
+                parser.pause();
+                if (chunk.errors.length > 0) {
+                    error(
+                        `Errors reading '${directory}/${geoFile}': ${chunk.errors}`,
+                    );
+                    error({ errors: chunk.errors });
+                } else {
+                    for (const row of chunk.data) {
+                        if (expectedCount) {
+                            if (count % Math.ceil(expectedCount / 100) === 0) {
+                                logger(
+                                    `${Math.floor(
+                                        (count / expectedCount) * 100,
+                                    )}% (${count}/ ${expectedCount})`,
                                 );
                             }
-                            count += 1;
-                        });
-                        parser.resume();
+                        }
+                        const g = row;
+                        if (
+                            loadContext.geoIndexed[g.ADDRESS_SITE_PID] ===
+                            undefined
+                        ) {
+                            loadContext.geoIndexed[g.ADDRESS_SITE_PID] = [g];
+                        } else {
+                            loadContext.geoIndexed[g.ADDRESS_SITE_PID].push(g);
+                        }
+                        count += 1;
                     }
-                },
-                complete: () => {
-                    resolve();
-                },
-                error: (error, file) => {
-                    console.log(error, file);
-                    reject(error);
-                },
-            });
+                    parser.resume();
+                }
+            },
+            complete: () => {
+                resolve();
+            },
+            error: (error, file) => {
+                console.log(error, file);
+                reject(error);
+            },
         });
-    }
+    });
 }
 
 async function loadDefaultGeo(
@@ -1534,65 +1506,61 @@ async function loadDefaultGeo(
             `Could not find address site geocode file '${state}_ADDRESS_DEFAULT_GEOCODE_psv.psv'`,
         );
         return [];
-    } else {
-        const expectedCount = filesCounts[geoFile];
-        let count = 0;
-
-        return await new Promise((resolve, reject) => {
-            Papa.parse(fs.createReadStream(`${directory}/${geoFile}`), {
-                header: true,
-                delimiter: "|",
-                chunk: (chunk, parser) => {
-                    parser.pause();
-                    if (chunk.errors.length > 0) {
-                        error(
-                            `Errors reading '${directory}/${geoFile}': ${chunk.errors}`,
-                        );
-                        error({ errors: chunk.errors });
-                    } else {
-                        chunk.data.forEach((row) => {
-                            if (expectedCount) {
-                                if (
-                                    count % Math.ceil(expectedCount / 100) ===
-                                    0
-                                ) {
-                                    logger(
-                                        `${Math.floor(
-                                            (count / expectedCount) * 100,
-                                        )}% (${count}/ ${expectedCount})`,
-                                    );
-                                }
-                            }
-                            const g = row;
-                            if (
-                                loadContext.geoDefaultIndexed[
-                                    g.ADDRESS_DETAIL_PID
-                                ] === undefined
-                            ) {
-                                loadContext.geoDefaultIndexed[
-                                    g.ADDRESS_DETAIL_PID
-                                ] = [g];
-                            } else {
-                                loadContext.geoDefaultIndexed[
-                                    g.ADDRESS_DETAIL_PID
-                                ].push(g);
-                            }
-                            count += 1;
-                        });
-                        parser.resume();
-                    }
-                },
-                complete: () => {
-                    resolve();
-                },
-
-                error: (error, file) => {
-                    console.log(error, file);
-                    reject(error);
-                },
-            });
-        });
     }
+    const expectedCount = filesCounts[geoFile];
+    let count = 0;
+
+    return await new Promise((resolve, reject) => {
+        Papa.parse(fs.createReadStream(`${directory}/${geoFile}`), {
+            header: true,
+            delimiter: "|",
+            chunk: (chunk, parser) => {
+                parser.pause();
+                if (chunk.errors.length > 0) {
+                    error(
+                        `Errors reading '${directory}/${geoFile}': ${chunk.errors}`,
+                    );
+                    error({ errors: chunk.errors });
+                } else {
+                    for (const row of chunk.data) {
+                        if (expectedCount) {
+                            if (count % Math.ceil(expectedCount / 100) === 0) {
+                                logger(
+                                    `${Math.floor(
+                                        (count / expectedCount) * 100,
+                                    )}% (${count}/ ${expectedCount})`,
+                                );
+                            }
+                        }
+                        const g = row;
+                        if (
+                            loadContext.geoDefaultIndexed[
+                                g.ADDRESS_DETAIL_PID
+                            ] === undefined
+                        ) {
+                            loadContext.geoDefaultIndexed[
+                                g.ADDRESS_DETAIL_PID
+                            ] = [g];
+                        } else {
+                            loadContext.geoDefaultIndexed[
+                                g.ADDRESS_DETAIL_PID
+                            ].push(g);
+                        }
+                        count += 1;
+                    }
+                    parser.resume();
+                }
+            },
+            complete: () => {
+                resolve();
+            },
+
+            error: (error, file) => {
+                console.log(error, file);
+                reject(error);
+            },
+        });
+    });
 }
 
 async function loadAuthFiles(files, directory, loadContext, filesCounts) {
@@ -1607,7 +1575,7 @@ async function loadAuthFiles(files, directory, loadContext, filesCounts) {
                 complete: (results) => {
                     loadContext[contextKey] = results.data;
                     if (filesCounts) {
-                        if (results.data.length != filesCounts[authFile]) {
+                        if (results.data.length !== filesCounts[authFile]) {
                             error(
                                 `Error loading '${directory}/${authFile}'. Expected '${filesCounts[authFile]}' rows, got '${results.data.length}'`,
                             );
@@ -1647,7 +1615,7 @@ export async function loadGnaf({ refresh = false } = {}) {
     logger("Data dir", unzipped);
     const contents = await fsp.readdir(unzipped);
     logger("Data dir contents", contents);
-    if (contents.length == 0) {
+    if (contents.length === 0) {
         throw new Error(`Data dir '${unzipped}' is empty`);
     }
     const gnafDir = await glob("**/G-NAF/", { cwd: unzipped });
@@ -1698,13 +1666,13 @@ export async function getAddress(addressId) {
         return { link, json, hash };
     } catch (error_) {
         error("error getting record from elastic search", error_);
-        if (error_.body.found === false) {
+        if (error_.body.found === false)
             return { statusCode: 404, json: { error: "not found" } };
-        } else if (error_.body.error.type === "index_not_found_exception") {
+
+        if (error_.body.error.type === "index_not_found_exception")
             return { statusCode: 503, json: { error: "service unavailable" } };
-        } else {
-            return { statusCode: 500, json: { error: "unexpected error" } };
-        }
+
+        return { statusCode: 500, json: { error: "unexpected error" } };
     }
 }
 
@@ -1748,7 +1716,7 @@ export async function getAddresses(url, swagger, q, p = 1) {
             link.set({
                 rel: "prev",
                 uri: `${url}${
-                    q === undefined && p == 2 ? "" : "?"
+                    q === undefined && p === 2 ? "" : "?"
                 }${new URLSearchParams({
                     ...(q !== undefined && { q }),
                     ...(p > 2 && { p: p - 1 }),
@@ -1779,16 +1747,17 @@ export async function getAddresses(url, swagger, q, p = 1) {
     } catch (error_) {
         error("error querying elastic search", error_);
         if (
-            error_.body &&
-            error_.body.error &&
+            error_.body?.error &&
             error_.body.error.type === "index_not_found_exception"
         ) {
             return { statusCode: 503, json: { error: "service unavailable" } };
-        } else if (error_.displayName === "RequestTimeout") {
-            return { statusCode: 504, json: { error: "gateway timeout" } };
-        } else {
-            return { statusCode: 500, json: { error: "unexpected error" } };
         }
+
+        if (error_.displayName === "RequestTimeout") {
+            return { statusCode: 504, json: { error: "gateway timeout" } };
+        }
+
+        return { statusCode: 500, json: { error: "unexpected error" } };
     }
 }
 

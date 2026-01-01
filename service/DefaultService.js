@@ -1,7 +1,7 @@
 import debug from "debug";
 import LinkHeader from "http-link-header";
 import { setLinkOptions } from "./setLinkOptions";
-var logger = debug("api");
+const logger = debug("api");
 
 /**
  * API Root
@@ -17,17 +17,14 @@ export async function getApiRoot() {
     );
 
     const link = new LinkHeader();
-    paths.forEach((p) => {
+    for (const p of paths) {
         const op = global.swaggerDoc.paths[p].get;
-        if (
-            op.parameters &&
-            op.parameters.find((parameter) => parameter.required === true)
-        ) {
+        if (op.parameters?.find((parameter) => parameter.required === true)) {
             // skip
         } else {
             link.set({ rel: op["x-root-rel"], uri: p, title: op.summary });
         }
-    });
+    }
     link.set({
         rel: "describedby",
         uri: "/docs/",
@@ -42,11 +39,11 @@ export async function getApiRoot() {
     });
 
     const linkTemplate = new LinkHeader();
-    paths.forEach((url) => {
+    for (const url of paths) {
         const op = global.swaggerDoc.paths[url].get;
         logger(op);
         setLinkOptions(op, url, linkTemplate);
-    });
+    }
 
     return { link: link, body: {}, linkTemplate: linkTemplate };
 }

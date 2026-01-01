@@ -1,20 +1,19 @@
-import crypto from "crypto";
-import { createServer } from "http";
+import crypto from "node:crypto";
+import { createServer } from "node:http";
 import { WayCharter } from "@mountainpass/waycharter";
-//import connect from 'connect';
 import debug from "debug";
 import express from "express";
 import { getAddress, searchForAddress } from "../service/address-service";
 import { version } from "../version";
 
-var app = express();
+const app = express();
 
 const ONE_DAY = 60 * 60 * 24;
 const ONE_WEEK = ONE_DAY * 7;
 
-var serverPort = process.env.PORT || 8080;
-var logger = debug("api");
-var error = debug("error");
+const serverPort = process.env.PORT || 8080;
+const logger = debug("api");
+const error = debug("error");
 error.log = console.error.bind(console); // eslint-disable-line no-console
 
 let server;
@@ -98,7 +97,8 @@ export function startRest2Server() {
                         "cache-control": `public, max-age=${ONE_WEEK}`,
                     },
                 };
-            } else {
+            }
+            
                 // If-None-Match
                 return {
                     body: [],
@@ -108,7 +108,7 @@ export function startRest2Server() {
                         "cache-control": `public, max-age=${ONE_WEEK}`,
                     },
                 };
-            }
+            
         },
         filters: [
             {
