@@ -1,10 +1,10 @@
-const { parse } = require("node:url");
-const http = require("node:https");
-const fs = require("node:fs");
-const pathUtil = require("node:path");
+import { parse } from "node:url";
+import http from "node:https";
+import fs from "node:fs";
+import pathUtil from "node:path";
 import ProgressBar from "progress";
 
-module.exports = (url, path, size) => {
+export default (url, path, size) => {
     const uri = parse(url);
     if (!path) {
         // biome-ignore lint/style/noParameterAssign: This is a workaround to allow the function to be called with a path parameter

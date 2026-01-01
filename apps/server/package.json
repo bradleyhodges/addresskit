@@ -4,8 +4,8 @@
     "type": "commonjs",
     "main": "server.js",
     "scripts": {
-        "dev": "babel-node server.js",
-        "start": "babel-node server.js",
+        "dev": "set DEBUG=error,api,express:*,swagger-tools*,test,es && pnpm exec babel-node server.js",
+        "start": "pnpm exec babel-node server.js",
         "build": "babel . --extensions \".js\" --ignore \"./lib/**\",\"./node_modules/**\" --out-dir ./lib",
         "test": "node -e \"console.log('no tests yet')\""
     },
@@ -29,6 +29,8 @@
         "unzip-stream": "^0.3.4"
     },
     "devDependencies": {
+        "@babel/core": "^7.28.5",
+        "@babel/node": "^7.28.0",
         "@types/got": "^9.6.12"
     }
 }
