@@ -24,34 +24,36 @@ actions:
 
 */
 
-import { connect } from "@dagger.io/dagger"
-import envPaths from "env-paths"
-import fs from "fs"
+import fs from "fs";
+import { connect } from "@dagger.io/dagger";
+import envPaths from "env-paths";
 
-const cacheDir = `${envPaths("", { suffix: "" }).cache}/dagger`
+const cacheDir = `${envPaths("", { suffix: "" }).cache}/dagger`;
 
-const binLocation = `${cacheDir}/dagger-0.3.9`
+const binLocation = `${cacheDir}/dagger-0.3.9`;
 
 if (!process.env._EXPERIMENTAL_DAGGER_CLI_BIN && fs.existsSync(binLocation)) {
-    process.env._EXPERIMENTAL_DAGGER_CLI_BIN = binLocation
-    console.log(`using already downloaded '${binLocation}'`)
+    process.env._EXPERIMENTAL_DAGGER_CLI_BIN = binLocation;
+    console.log(`using already downloaded '${binLocation}'`);
 }
 
-console.log('connecting...')
+console.log("connecting...");
 connect(async (client) => {
-    console.log('\t...connected')
+    console.log("\t...connected");
     // get reference to the local project
-    client.log
-    const workspace = client.host().directory(".")//, { exclude: ["node_modules/"] })
+    client.log;
+    const workspace = client.host().directory("."); //, { exclude: ["node_modules/"] })
 
     // get Node image
-    const node = client.container().from("node:14.21.2")
+    const node = client
+        .container()
+        .from("node:14.21.2")
         .withMountedDirectory("/workspace", workspace)
         .withWorkdir("/workspace");
 
-    console.log(await node.withExec(["npm", "--version"]).stdout())
+    console.log(await node.withExec(["npm", "--version"]).stdout());
 
-    const installed = node
+    const installed = node;
     //     .withExec(["npm", "install"])
 
     // const exitCode = await installed.exitCode()
@@ -63,11 +65,13 @@ connect(async (client) => {
     // print output
     // console.log("Hello from Dagger and Node " + version)
 
-    await installed.withExec(["npm", "run", "genversion"]).file('version.js').export('dagger-version.js')
+    await installed
+        .withExec(["npm", "run", "genversion"])
+        .file("version.js")
+        .export("dagger-version.js");
 
-
-    console.log(stdout)
-    console.error(stderr)
+    console.log(stdout);
+    console.error(stderr);
 
     /*
     npm run genversion
@@ -76,9 +80,8 @@ connect(async (client) => {
                 npm run cover:rest:nogeo
     */
 
-    installed.withExec(["npm", "run", "build"])
+    installed.withExec(["npm", "run", "build"]);
     // await runner.exitCode()
     // .directory("node_modules/")
     // .export("./dagger_node_modules")
-
-})
+});

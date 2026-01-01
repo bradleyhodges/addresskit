@@ -1,40 +1,22 @@
 {
-  "$schema": "https://turbo.build/schema.json",
-  "pipeline": {
-    "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "src/**/*"
-      ],
-      "outputs": [
-        "lib/**"
-      ]
+    "$schema": "https://turbo.build/schema.json",
+    "pipeline": {
+        "build": {
+            "dependsOn": ["^build"],
+            "inputs": ["src/**/*"],
+            "outputs": ["lib/**"]
+        },
+        "ci:build": {
+            "dependsOn": ["build"],
+            "inputs": ["src/**/*"],
+            "outputs": ["lib/**"]
+        },
+        "ci:version": {
+            "dependsOn": ["build"]
+        },
+        "ci:publish": {
+            "dependsOn": ["build"]
+        }
     },
-    "ci:build": {
-      "dependsOn": [
-        "build"
-      ],
-      "inputs": [
-        "src/**/*"
-      ],
-      "outputs": [
-        "lib/**"
-      ]
-    },
-    "ci:version": {
-      "dependsOn": [
-        "build"
-      ]
-    },
-    "ci:publish": {
-      "dependsOn": [
-        "build"
-      ]
-    }
-  },
-  "globalDependencies": [
-    ".babelrc"
-  ]
+    "globalDependencies": [".babelrc"]
 }

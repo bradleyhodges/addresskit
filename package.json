@@ -225,22 +225,10 @@
         "url": "https://github.com/bradleyhodges/addressr/issues"
     },
     "lint-staged": {
-        "*.{js,jsx}": [
-            "eslint --fix",
-            "git add"
-        ],
-        "*.{json,css,md}": [
-            "prettier --write",
-            "git add"
-        ],
-        "*.{png,jpeg,jpg,gif,svg}": [
-            "imagemin-lint-staged",
-            "git add"
-        ],
-        ".circleci/config.yml": [
-            "circleci config validate",
-            "git add"
-        ]
+        "*.{js,jsx}": ["eslint --fix", "git add"],
+        "*.{json,css,md}": ["prettier --write", "git add"],
+        "*.{png,jpeg,jpg,gif,svg}": ["imagemin-lint-staged", "git add"],
+        ".circleci/config.yml": ["circleci config validate", "git add"]
     },
     "husky": {
         "hooks": {

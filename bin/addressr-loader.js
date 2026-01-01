@@ -1,3 +1,3 @@
 #!/usr/bin/env node
 
-import {} from '../loader.js';
+import {} from "../loader.js";
