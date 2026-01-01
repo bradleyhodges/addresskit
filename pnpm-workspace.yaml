@@ -1,0 +1,7 @@
+onlyBuiltDependencies:
+  - core-js
+  - es5-ext
+  - gifsicle
+  - jpegtran-bin
+  - ngrok
+  - optipng-bin
