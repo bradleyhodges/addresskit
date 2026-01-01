@@ -21,6 +21,7 @@
     },
     "scripts": {
         "format": "biome check . --write --skip-errors",
+        "clean": "git clean -xdf node_modules",
         "gen-install-cmd": "echo \"#!/bin/sh\n\nnpm install -g ${npm_package_name}@${npm_package_version}\" > install.sh",
         "deploy:prod": "deploy/deploy.sh",
         "deploy:test": "deploy/deploy.sh",
