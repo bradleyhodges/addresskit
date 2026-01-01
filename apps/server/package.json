@@ -2,13 +2,13 @@
     "name": "@repo/addressr-server",
     "private": true,
     "type": "commonjs",
-    "main": "server.js",
+    "main": "server.ts",
     "scripts": {
-        "dev": "set DEBUG=error,api,express:*,swagger-tools*,test,es && pnpm exec babel-node server.js",
-        "start": "pnpm exec babel-node server.js",
-        "build": "babel . --extensions \".js\" --ignore \"./lib/**\",\"./node_modules/**\" --out-dir ./lib",
+        "dev": "set DEBUG=error,api,express:*,swagger-tools*,test,es && pnpm exec ts-node --transpile-only server.ts",
+        "start": "pnpm exec ts-node --transpile-only server.ts",
+        "build": "tsc -p tsconfig.json --noEmit",
         "test": "node -e \"console.log('no tests yet')\"",
-        "typecheck": "tsc -p tsconfig.json"
+        "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
         "@mountainpass/waycharter": "^1.0.76",
@@ -32,6 +32,15 @@
     "devDependencies": {
         "@babel/core": "^7.28.5",
         "@babel/node": "^7.28.0",
-        "@types/got": "^9.6.12"
+        "@types/debug": "^4.1.12",
+        "@types/express": "^4.17.25",
+        "@types/got": "^9.6.12",
+        "@types/http-link-header": "^1.0.7",
+        "@types/js-yaml": "^4.0.9",
+        "@types/node": "^22.10.1",
+        "@types/papaparse": "^5.5.2",
+        "@types/swagger-tools": "^0.10.10",
+        "@types/unzip-stream": "^0.3.4",
+        "ts-node": "^10.9.2"
     }
 }

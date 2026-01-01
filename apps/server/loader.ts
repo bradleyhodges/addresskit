@@ -1,0 +1,59 @@
+import debug from "debug";
+import { esConnect } from "@repo/addressr-client/elasticsearch";
+import { loadGnaf } from "./service/address-service";
+import { printVersion } from "./service/printVersion";
+
+/**
+ * The logger for the API.
+ */
+const logger = debug("api");
+
+/**
+ * The logger for errors.
+ */
+const error = debug("error");
+
+/**
+ * If the DEBUG environment variable is not set, enable the API and error loggers
+ */
+if (process.env.DEBUG === undefined) {
+    debug.enable("api,error");
+}
+
+/**
+ * Loads G-NAF data into OpenSearch, measuring execution time.
+ */
+async function runLoader(): Promise<void> {
+    // Get the start time
+    const start = process.hrtime();
+
+    // Connect to the Elasticsearch client
+    await esConnect();
+    logger("es client connected");
+
+    // Print the version and environment
+    console.log("======================");
+    console.log("Addressr - Data Loader");
+    console.log("=======================");
+    printVersion();
+
+    // Load the G-NAF data
+    await loadGnaf();
+    logger("data loaded");
+
+    // Get the end time
+    const end = process.hrtime(start);
+    logger(`Execution time: ${end[0]}s ${end[1] / 1_000_000}ms`);
+    logger("Fin");
+}
+
+/**
+ * Run the loader and catch any errors
+ *
+ * @param error_ - The error
+ * @returns {Promise<void>}
+ */
+void runLoader().catch((error_) => {
+    error("error loading data", error_);
+    throw error_;
+});
