@@ -186,6 +186,8 @@
         "@babel/preset-react": "^7.0.0",
         "@babel/register": "^7.7.0",
         "@babel/runtime": "^7.5.0",
+        "@biomejs/biome": "1.9.4",
+        "@biomejs/cli-win32-x64": "1.9.4",
         "@istanbuljs/nyc-config-babel": "^3.0.0",
         "@mountainpass/waychaser": "^4.0.0",
         "@windyroad/cucumber-js-throwables": "^1.0.4",
