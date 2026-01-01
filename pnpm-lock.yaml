@@ -9,16 +9,16 @@ importers:
   .:
     dependencies:
       '@changesets/cli':
-        specifier: ^2.26.2
+        specifier: ^2.29.8
         version: 2.29.8(@types/node@25.0.3)
       '@mountainpass/waycharter':
-        specifier: ^1.0.68
+        specifier: ^1.0.76
         version: 1.0.76(express@4.22.1)
       '@opensearch-project/opensearch':
-        specifier: ^2.0.0
+        specifier: ^2.13.0
         version: 2.13.0
       debug:
-        specifier: ^4.1.1
+        specifier: ^4.4.3
         version: 4.4.3(supports-color@8.1.1)
       directory-exists:
         specifier: ^2.0.1
@@ -27,13 +27,13 @@ importers:
         specifier: ^10.0.0
         version: 10.0.0
       express:
-        specifier: ^4.17.1
+        specifier: ^4.22.1
         version: 4.22.1
       glob:
-        specifier: ^7.1.7
+        specifier: ^7.2.3
         version: 7.2.3
       glob-promise:
-        specifier: ^4.2.0
+        specifier: ^4.2.2
         version: 4.2.2(glob@7.2.3)
       got:
         specifier: ^9.6.0
@@ -42,13 +42,13 @@ importers:
         specifier: 1.0.2
         version: 1.0.2
       js-yaml:
-        specifier: ^3.3.0
+        specifier: ^3.14.2
         version: 3.14.2
       json-ptr:
         specifier: 2.1.0
         version: 2.1.0
       keyv:
-        specifier: ^4.0.1
+        specifier: ^4.5.4
         version: 4.5.4
       keyv-file:
         specifier: ^0.2.0
@@ -57,56 +57,56 @@ importers:
         specifier: ^1.1.12
         version: 1.1.12
       papaparse:
-        specifier: ^5.0.0
+        specifier: ^5.5.3
         version: 5.5.3
       progress:
         specifier: ^2.0.3
         version: 2.0.3
       semver:
-        specifier: ^7.3.2
+        specifier: ^7.7.3
         version: 7.7.3
       swagger-tools:
         specifier: ^0.10.4
         version: 0.10.4
       unzip-stream:
-        specifier: ^0.3.0
+        specifier: ^0.3.4
         version: 0.3.4
       uri-template-lite:
         specifier: ^20.5.0
         version: 20.5.0
       wait-port:
-        specifier: ^0.2.2
+        specifier: ^0.2.14
         version: 0.2.14
     devDependencies:
       '@babel/cli':
-        specifier: ^7.6.2
+        specifier: ^7.28.3
         version: 7.28.3(@babel/core@7.28.5)
       '@babel/core':
-        specifier: ^7.6.2
+        specifier: ^7.28.5
         version: 7.28.5
       '@babel/node':
-        specifier: ^7.6.2
+        specifier: ^7.28.0
         version: 7.28.0(@babel/core@7.28.5)
       '@babel/plugin-proposal-class-properties':
-        specifier: ^7.5.5
+        specifier: ^7.18.6
         version: 7.18.6(@babel/core@7.28.5)
       '@babel/plugin-transform-runtime':
-        specifier: ^7.6.2
+        specifier: ^7.28.5
         version: 7.28.5(@babel/core@7.28.5)
       '@babel/polyfill':
-        specifier: ^7.4.4
+        specifier: ^7.12.1
         version: 7.12.1
       '@babel/preset-env':
-        specifier: ^7.6.2
+        specifier: ^7.28.5
         version: 7.28.5(@babel/core@7.28.5)
       '@babel/preset-react':
-        specifier: ^7.0.0
+        specifier: ^7.28.5
         version: 7.28.5(@babel/core@7.28.5)
       '@babel/register':
-        specifier: ^7.7.0
+        specifier: ^7.28.3
         version: 7.28.3(@babel/core@7.28.5)
       '@babel/runtime':
-        specifier: ^7.5.0
+        specifier: ^7.28.4
         version: 7.28.4
       '@biomejs/biome':
         specifier: 1.9.4
@@ -118,64 +118,64 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0(@babel/register@7.28.3(@babel/core@7.28.5))(babel-plugin-istanbul@6.1.1)
       '@mountainpass/waychaser':
-        specifier: ^4.0.0
+        specifier: ^4.0.38
         version: 4.0.38
       '@windyroad/cucumber-js-throwables':
         specifier: ^1.0.4
         version: 1.0.4(cucumber@5.1.0)
       babel-eslint:
-        specifier: ^10.0.2
+        specifier: ^10.1.0
         version: 10.1.0(eslint@7.32.0)
       babel-plugin-istanbul:
-        specifier: ^6.0.0
+        specifier: ^6.1.1
         version: 6.1.1
       babel-preset-env:
         specifier: ^1.7.0
         version: 1.7.0
       chai:
-        specifier: ^4.2.0
+        specifier: ^4.5.0
         version: 4.5.0
       cucumber:
         specifier: ^5.1.0
         version: 5.1.0
       eslint:
-        specifier: ^7.9.0
+        specifier: ^7.32.0
         version: 7.32.0
       eslint-config-prettier:
-        specifier: ^8.0.0
+        specifier: ^8.10.2
         version: 8.10.2(eslint@7.32.0)
       eslint-plugin-chai-friendly:
-        specifier: ^0.7.1
+        specifier: ^0.7.4
         version: 0.7.4(eslint@7.32.0)
       eslint-plugin-eslint-comments:
         specifier: ^3.2.0
         version: 3.2.0(eslint@7.32.0)
       eslint-plugin-import:
-        specifier: ^2.22.0
+        specifier: ^2.32.0
         version: 2.32.0(eslint@7.32.0)
       eslint-plugin-node:
         specifier: ^11.1.0
         version: 11.1.0(eslint@7.32.0)
       eslint-plugin-prettier:
-        specifier: ^3.1.1
+        specifier: ^3.4.1
         version: 3.4.1(eslint-config-prettier@8.10.2(eslint@7.32.0))(eslint@7.32.0)(prettier@2.8.8)
       eslint-plugin-promise:
-        specifier: ^5.1.0
+        specifier: ^5.2.0
         version: 5.2.0(eslint@7.32.0)
       eslint-plugin-react:
-        specifier: ^7.7.0
+        specifier: ^7.37.5
         version: 7.37.5(eslint@7.32.0)
       eslint-plugin-security:
-        specifier: ^1.4.0
+        specifier: ^1.7.1
         version: 1.7.1
       eslint-plugin-unicorn:
         specifier: ^34.0.1
         version: 34.0.1(eslint@7.32.0)
       genversion:
-        specifier: ^3.0.0
+        specifier: ^3.2.0
         version: 3.2.0
       husky:
-        specifier: ^7.0.0
+        specifier: ^7.0.4
         version: 7.0.4
       imagemin-lint-staged:
         specifier: ^0.4.0
@@ -190,16 +190,16 @@ importers:
         specifier: ^25.0.1
         version: 25.0.1
       lint-staged:
-        specifier: ^11.0.0
+        specifier: ^11.2.6
         version: 11.2.6
       ngrok:
-        specifier: ^4.0.1
+        specifier: ^4.3.3
         version: 4.3.3
       nodemon:
-        specifier: ^2.0.4
+        specifier: ^2.0.22
         version: 2.0.22
       npm-check:
-        specifier: ^5.9.0
+        specifier: ^5.9.2
         version: 5.9.2
       npm-run-all:
         specifier: ^4.1.5
@@ -208,13 +208,13 @@ importers:
         specifier: ^15.1.0
         version: 15.1.0
       prettier:
-        specifier: ^2.1.0
+        specifier: ^2.8.8
         version: 2.8.8
       prettier-config-standard:
-        specifier: ^4.0.0
+        specifier: ^4.1.0
         version: 4.1.0(prettier@2.8.8)
       turbo:
-        specifier: ^2.0.0
+        specifier: ^2.7.2
         version: 2.7.2
 
   apps/server:
@@ -292,12 +292,6 @@ importers:
       progress:
         specifier: ^2.0.3
         version: 2.0.3
-
-  packages/loader:
-    dependencies:
-      '@repo/addressr-core':
-        specifier: workspace:*
-        version: link:../core
 
 packages:
 
@@ -12459,7 +12453,7 @@ snapshots:
       lodash.isequal: 4.5.0
       validator: 10.11.0
     optionalDependencies:
-      commander: 2.20.3
+      commander: 2.11.0
 
   zip-stream@0.5.2:
     dependencies:
