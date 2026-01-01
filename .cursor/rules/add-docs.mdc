@@ -1,0 +1,48 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: Typescript/Javascript Documentation Cursor Rules
+globs: **/*.tsx, **/*.ts, src/**/*.ts, src/**/*.tsx
+---
+
+This document delineates the mandatory documentation requirements for all Typescript and Javascript files in the project. Adherence to these guidelines is imperative for maintaining clarity, consistency, and maintainability throughout the codebase.
+
+## Inline Commenting Guidelines
+
+- **Purposeful Annotation:**  
+  Inline comments must be used to clarify the intent and logic of specific code sections. They should be applied where the code's purpose is not immediately evident.
+
+- **Conciseness and Precision:**  
+  All inline comments must be succinct and directly relevant to the associated code. Avoid non-committal or speculative phrases such as "you might do X here." When additional attention is required, use a `// TODO:` comment to flag the need for review.
+
+- **Maintenance of Comments:**  
+  Comments must be kept up-to-date with any changes in the corresponding code to ensure ongoing accuracy and usefulness.
+
+## Function and Callback Documentation
+
+- **Mandatory JSDoc Format:**  
+  Every function, method, and callback is required to have an accompanying JSDoc comment. The JSDoc must include:
+  - A brief description of the function's purpose.
+  - Detailed documentation of each parameter, including its type and a concise explanation.
+  - A description of the return value, specifying the type and behavior.
+  - Documentation of any exceptions or errors that the function might throw.
+
+- **Uniformity:**
+  All JSDoc comments should follow the standard formatting rules consistently across the project.
+
+- **Example:**
+  ```typescript
+  /**
+   * Executes the primary calculation routine.
+   *
+   * @param {number} input - The input value for the calculation.
+   * @returns {number} The computed result.
+   */
+  function calculate(input: number): number {
+      // Validate the input value
+      // TODO: Implement enhanced error handling for edge cases
+      return input * 2;
+  }

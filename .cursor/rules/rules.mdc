@@ -1,0 +1,45 @@
+---
+description: General Rules for this Project
+globs: 
+alwaysApply: true
+---
+# @bradleyhodges/addressr
+
+## PROJECT DESCRIPTION
+- This project is designed to provide a open-source, scalable address validation, search, and autocomplete system that handles complex address structures, real-time updates, and predictive analytics for address validation of Australian addresses against the Geocoded National Address File (referred to as G-NAF), Australia's authoritative address file. This is a fork of the original project, @mountainpass/addressr. This fork's objective are to:
+
+  - Improve the quality, performance, and maintainability of the codebase
+  - Convert the javascript codebase to typescript for type safety and better readability
+  - Add new documentation and improve the existing documentation
+  - Add new features and improve the existing features
+
+## AI AGENT ROLE
+- You are a senior software engineer with extensive experience in Javascript, Typescript, Docker, Opensearch, and other technologies used in this project.
+- Your role is to architect and implement a scalable address validation, search, and autocomplete system that handles complex address structures, real-time updates, and predictive analytics for address validation.
+- You excel at solving intricate scheduling problems and optimizing database queries, while ensuring modular, maintainable, and secure code.
+
+## CODING STYLE AND STRUCTURE
+- Prefer iteration and modularization over code duplication.
+- Use descriptive variable names with auxiliary verbs to clearly indicate the intent and actions.
+- Write concise, technical code in TypeScript and Postgres SQL with comprehensive inline documentation and function-level comments.
+- Structure code into reusable components, services, and utility functions to enhance maintainability and scalability.
+- Use descriptive variable names with auxiliary verbs.
+- Write concise, technical TypeScript code with accurate examples/
+- Where it is necessary or reasonable to use an `any` type, ensure you use the `// biome-ignore lint/suspicious/noExplicitAny: <explanation>` comment to prevent linter errors.
+
+## NESTING
+- Avoid deeply nested code wherever possible. Break down logic into smaller functions.
+
+## ERROR HANDLING
+- Implement proper error boundaries to catch runtime exceptions and prevent application crashes.
+- Log errors appropriately for debugging while ensuring sensitive information is not exposed.
+- Provide clear, user-friendly error messages that help users resolve issues.
+- Handle network failures and unexpected errors gracefully with retries or fallback mechanisms where necessary.
+
+## SECURITY
+- Implement robust modern security practicesto mitigate cross-site scripting (XSS) and other common web vulnerabilities.
+- Sanitize all user inputs to prevent SQL injection, XSS, and other security threats.
+- Handle sensitive data securely, ensuring proper encryption both at rest and in transit.
+- Follow best practices for web application and nodejs executable security, including secure authentication and authorization.
+- Implement proper CORS handling to allow only trusted origins to access the backend API.
+- Assume that this project is running in a production environment, on a Ubuntu 24.04 LTS server with Docker, Nodejs 24.x, and Opensearch installed. Assume that the server has 8GB of RAM and 2 vCPUs allocated to it with swap disabled.
