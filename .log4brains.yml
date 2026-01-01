@@ -1,5 +1,0 @@
-project:
-  name: "@mountainpass/addressr"
-  tz: Africa/Abidjan
-  adrFolder: ./docs/adrs
-  packages: []
