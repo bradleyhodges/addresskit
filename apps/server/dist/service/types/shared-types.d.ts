@@ -1,5 +1,3 @@
-import { OpensearchApiResponse, OpensearchSearchResponse } from ".";
-
 export type BulkIndexBody = Array<Record<string, unknown>>;
 /**
  * Represents an address document ready for indexing into OpenSearch.
@@ -7,7 +5,11 @@ export type BulkIndexBody = Array<Record<string, unknown>>;
  */
 export type IndexableAddress = {
     /** HATEOAS self-link for the address resource */
-    links: { self: { href: string } };
+    links: {
+        self: {
+            href: string;
+        };
+    };
     /** Single-line address representation */
     sla?: unknown;
     /** Short single-line address (for unit/flat addresses) */
@@ -17,24 +19,13 @@ export type IndexableAddress = {
     /** Structured address components */
     structured: {
         /** Nested structured data (for backwards compatibility) */
-        structured?: { confidence?: number };
+        structured?: {
+            confidence?: number;
+        };
         /** Confidence score at the structured level */
         confidence?: number;
         /** Additional structured address fields */
         [key: string]: unknown;
     };
 };
-
-/**
- * Metadata returned by searchForAddress to keep pagination and total handling
- * consistent between the OpenSearch layer and HTTP response construction.
- */
-export type SearchForAddressResult = {
-    searchResponse: OpensearchApiResponse<
-        OpensearchSearchResponse<unknown>,
-        unknown
-    >;
-    page: number;
-    size: number;
-    totalHits: number;
-};
+//# sourceMappingURL=shared-types.d.ts.map
