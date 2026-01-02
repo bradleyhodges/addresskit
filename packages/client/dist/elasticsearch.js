@@ -1,11 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VERBOSE = exports.ELASTIC_PORT = void 0;
 exports.dropIndex = dropIndex;
 exports.initIndex = initIndex;
 exports.esConnect = esConnect;
 const opensearch_1 = require("@opensearch-project/opensearch");
-const debug_1 = require("debug");
+const debug_1 = __importDefault(require("debug"));
 /**
  * The wait-port function.
  */

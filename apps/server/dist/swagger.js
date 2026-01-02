@@ -1,18 +1,54 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.swaggerInit = swaggerInit;
 exports.startServer = startServer;
 exports.stopServer = stopServer;
 const node_fs_1 = require("node:fs");
 const node_http_1 = require("node:http");
-const path = require("node:path");
-const debug_1 = require("debug");
-const express = require("express");
+const path = __importStar(require("node:path"));
+const debug_1 = __importDefault(require("debug"));
+const express_1 = __importDefault(require("express"));
 const js_yaml_1 = require("js-yaml");
 const swagger_tools_1 = require("swagger-tools");
 const config_1 = require("./service/config");
 // Create the express app and set the server port
-const app = express();
+const app = (0, express_1.default)();
 const serverPort = Number.parseInt(process.env.PORT ?? "8080", 10);
 /**
  * The logger for the API.

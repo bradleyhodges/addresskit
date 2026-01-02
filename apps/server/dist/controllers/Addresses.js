@@ -1,9 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAddress = getAddress;
 exports.getAddresses = getAddresses;
 const addresskit_core_1 = require("@repo/addresskit-core");
-const debug_1 = require("debug");
+const debug_1 = __importDefault(require("debug"));
 const service_1 = require("../service");
 const config_1 = require("../service/config");
 const jsonapi_1 = require("../service/helpers/jsonapi");

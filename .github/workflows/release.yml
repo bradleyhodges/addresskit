@@ -2,73 +2,58 @@ name: Release
 
 on:
   push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - '*'
-  workflow_dispatch:
-
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+    tags:
+      - 'v*'
 
 jobs:
-  build:
-    if: github.ref != 'refs/heads/master'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build process
-        uses: devcontainers/ci@v0.3
-        with:
-          runCmd: |
-            npm ci
-            npm run build
-
   release:
-    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '22.x'
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: |
-          npm ci
-      - name: Create Release Pull Request or Publish to npm
-        id: changesets
-        uses: changesets/action@v1.4.5
-        with:
-          # these commands build & tests as well
-          publish: npm run turbo:ci:publish
-          version: npm run turbo:ci:version
-          commit: 'chore: release'
-          title: 'chore: release'
-          createGithubReleases: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    permissions:
+      contents: write
+      packages: write
 
-      - name: Deploy new version
-        if: steps.changesets.outputs.published == 'true'
-        uses: devcontainers/ci@v0.3
-        env:
-          TF_VAR_elastic_host: ${{ secrets.TF_VAR_elastic_host }}
-          TF_VAR_elastic_password: ${{ secrets.TF_VAR_elastic_password }}
-          TF_VAR_elastic_username: ${{ secrets.TF_VAR_elastic_username }}
-          TF_VAR_aws_secret_key: ${{ secrets.TF_VAR_aws_secret_key }}
-          TF_VAR_aws_access_key: ${{ secrets.TF_VAR_aws_access_key }}
-          TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          runCmd: |
-            npm run deploy:prod
-          env: |
-            TF_IN_AUTOMATION=1
-            TF_VAR_elasticapp=addresskit
-            TF_VAR_elastic_host
-            TF_VAR_elastic_password
-            TF_VAR_elastic_username
-            TF_VAR_aws_secret_key
-            TF_VAR_aws_access_key
-            TF_TOKEN_app_terraform_io
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Setup GitHub Package Registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Publish to GitHub Packages
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            bradleyhodges-addresskit-*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,7 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getApiRoot = getApiRoot;
-const debug_1 = require("debug");
+const debug_1 = __importDefault(require("debug"));
 const LinkHeader = require("http-link-header");
 const config_1 = require("./config");
 const setLinkOptions_1 = require("./setLinkOptions");

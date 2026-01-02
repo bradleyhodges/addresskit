@@ -5,11 +5,14 @@
  * Handles the G-NAF data loading process with beautiful terminal output,
  * progress indicators, and comprehensive status reporting.
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runLoadCommand = runLoadCommand;
 const elasticsearch_1 = require("@repo/addresskit-client/elasticsearch");
-const debug_1 = require("debug");
-const service_1 = require("../../service");
+const debug_1 = __importDefault(require("debug"));
+const service_1 = __importDefault(require("../../service"));
 const config_1 = require("../../service/config");
 const terminalUI_1 = require("../../service/helpers/terminalUI");
 /** Debug logger for API operations */

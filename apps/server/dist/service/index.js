@@ -1,13 +1,49 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.searchForAddress = exports.setAddresses = exports.mapToJsonApiAutocompleteResponse = exports.mapToSearchAddressResponse = exports.getAddresses = exports.getAddress = exports.gotClient = exports.keepAliveAgent = exports.gnafHttpCache = exports.cache = exports.error = exports.logger = exports.readdir = exports.fsp = void 0;
-const crypto = require("node:crypto");
-const fs = require("node:fs");
+const crypto = __importStar(require("node:crypto"));
+const fs = __importStar(require("node:fs"));
 const node_https_1 = require("node:https");
-const debug_1 = require("debug");
-const got = require("got");
-const LinkHeader = require("http-link-header");
-const Keyv = require("keyv");
+const debug_1 = __importDefault(require("debug"));
+const got = __importStar(require("got"));
+const http_link_header_1 = __importDefault(require("http-link-header"));
+const keyv_1 = __importDefault(require("keyv"));
 const keyv_file_1 = require("keyv-file");
 const load_1 = require("./commands/load");
 const conf_1 = require("./conf");
@@ -27,13 +63,13 @@ exports.error = (0, debug_1.default)("error");
 /**
  * The cache for the API.
  */
-exports.cache = new Keyv({
+exports.cache = new keyv_1.default({
     store: new keyv_file_1.KeyvFile({ filename: "target/keyv-file.msgpack" }),
 });
 /**
  * Persistent HTTP cache for Got requests to avoid re-downloading unchanged payloads.
  */
-exports.gnafHttpCache = new Keyv({
+exports.gnafHttpCache = new keyv_1.default({
     store: new keyv_file_1.KeyvFile({ filename: "target/gnaf-http-cache.msgpack" }),
     namespace: "gnaf-http-cache",
 });
@@ -358,7 +394,7 @@ const getAddress = async (addressId) => {
         if (config_1.VERBOSE)
             (0, exports.logger)("jsonApiDocument", jsonApiDocument);
         // Construct HATEOAS self-link for the address resource
-        const link = new LinkHeader();
+        const link = new http_link_header_1.default();
         link.set({
             rel: "self",
             uri: `/addresses/${addressId}`,
@@ -456,7 +492,7 @@ const getAddresses = async (url, swagger, q, p = 1) => {
         if (config_1.VERBOSE)
             (0, exports.logger)("jsonApiDocument", JSON.stringify(jsonApiDocument, undefined, 2));
         // Initialize the Link header for HATEOAS navigation (kept for backwards compatibility)
-        const link = new LinkHeader();
+        const link = new http_link_header_1.default();
         // Add link to API documentation for this operation
         link.set({
             rel: "describedby",
@@ -523,7 +559,7 @@ const getAddresses = async (url, swagger, q, p = 1) => {
             });
         }
         // Construct Link-Template header for API discoverability (RFC 6570)
-        const linkTemplate = new LinkHeader();
+        const linkTemplate = new http_link_header_1.default();
         const op = swagger.path.get;
         (0, setLinkOptions_1.setLinkOptions)(op, url, linkTemplate);
         // Return JSON:API document instead of legacy format

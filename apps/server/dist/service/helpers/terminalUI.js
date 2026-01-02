@@ -5,6 +5,9 @@
  * Provides beautiful terminal output using ora spinners and chalk styling
  * for a delightful user experience during CLI operations.
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ora = exports.chalk = exports.theme = void 0;
 exports.displayBanner = displayBanner;
@@ -31,10 +34,10 @@ exports.displayKeyValue = displayKeyValue;
 exports.getStateColor = getStateColor;
 exports.formatState = formatState;
 exports.displayBox = displayBox;
-const chalk = require("chalk");
-exports.chalk = chalk;
-const ora = require("ora");
-exports.ora = ora;
+const chalk_1 = __importDefault(require("chalk"));
+exports.chalk = chalk_1.default;
+const ora_1 = __importDefault(require("ora"));
+exports.ora = ora_1.default;
 // ---------------------------------------------------------------------------------
 // Theme Configuration
 // ---------------------------------------------------------------------------------
@@ -44,25 +47,25 @@ exports.ora = ora;
  */
 exports.theme = {
     /** Primary brand color - used for main headings and important info */
-    primary: chalk.hex("#7C3AED"),
+    primary: chalk_1.default.hex("#7C3AED"),
     /** Secondary accent color - used for highlights and emphasis */
-    secondary: chalk.hex("#06B6D4"),
+    secondary: chalk_1.default.hex("#06B6D4"),
     /** Success color - used for completed operations and positive feedback */
-    success: chalk.hex("#10B981"),
+    success: chalk_1.default.hex("#10B981"),
     /** Warning color - used for cautions and non-critical alerts */
-    warning: chalk.hex("#F59E0B"),
+    warning: chalk_1.default.hex("#F59E0B"),
     /** Error color - used for failures and critical issues */
-    error: chalk.hex("#EF4444"),
+    error: chalk_1.default.hex("#EF4444"),
     /** Muted color - used for less important information */
-    muted: chalk.hex("#6B7280"),
+    muted: chalk_1.default.hex("#6B7280"),
     /** Info color - used for general information */
-    info: chalk.hex("#3B82F6"),
+    info: chalk_1.default.hex("#3B82F6"),
     /** Highlight color - used for key values and emphasis */
-    highlight: chalk.hex("#EC4899"),
+    highlight: chalk_1.default.hex("#EC4899"),
     /** Dim text - used for supplementary information */
-    dim: chalk.dim,
+    dim: chalk_1.default.dim,
     /** Bold text - used for emphasis */
-    bold: chalk.bold,
+    bold: chalk_1.default.bold,
 };
 // ---------------------------------------------------------------------------------
 // ASCII Art & Branding
@@ -142,7 +145,7 @@ function startSpinner(text) {
     if (currentSpinner?.isSpinning) {
         currentSpinner.stop();
     }
-    currentSpinner = ora({
+    currentSpinner = (0, ora_1.default)({
         text: exports.theme.info(text),
         color: "cyan",
     }).start();
@@ -373,15 +376,15 @@ function displayKeyValue(data, indent = 2) {
  * Australian state color mapping for visual distinction.
  */
 const stateColors = {
-    NSW: chalk.hex("#00A4E4"),
-    VIC: chalk.hex("#003DA5"),
-    QLD: chalk.hex("#8B0000"),
-    WA: chalk.hex("#FFD100"),
-    SA: chalk.hex("#DC143C"),
-    TAS: chalk.hex("#005F45"),
-    ACT: chalk.hex("#003366"),
-    NT: chalk.hex("#8B4513"),
-    OT: chalk.hex("#808080"),
+    NSW: chalk_1.default.hex("#00A4E4"),
+    VIC: chalk_1.default.hex("#003DA5"),
+    QLD: chalk_1.default.hex("#8B0000"),
+    WA: chalk_1.default.hex("#FFD100"),
+    SA: chalk_1.default.hex("#DC143C"),
+    TAS: chalk_1.default.hex("#005F45"),
+    ACT: chalk_1.default.hex("#003366"),
+    NT: chalk_1.default.hex("#8B4513"),
+    OT: chalk_1.default.hex("#808080"),
 };
 /**
  * Returns a chalk function for styling state-specific text.

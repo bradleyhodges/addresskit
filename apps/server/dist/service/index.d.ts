@@ -1,7 +1,8 @@
 import * as fs from "node:fs";
 import { Agent as HttpsAgent } from "node:https";
+import debug from "debug";
 import * as got from "got";
-import * as Keyv from "keyv";
+import Keyv from "keyv";
 import { KeyvFile } from "keyv-file";
 import type * as Types from "./types/index";
 /**
@@ -12,8 +13,8 @@ export declare const readdir: typeof fs.promises.readdir;
 /**
  * Loggers for the API.
  */
-export declare const logger: import("debug").Debugger;
-export declare const error: import("debug").Debugger;
+export declare const logger: debug.Debugger;
+export declare const error: debug.Debugger;
 /**
  * The cache for the API.
  */

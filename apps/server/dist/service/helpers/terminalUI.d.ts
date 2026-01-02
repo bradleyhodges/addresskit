@@ -4,8 +4,8 @@
  * Provides beautiful terminal output using ora spinners and chalk styling
  * for a delightful user experience during CLI operations.
  */
-import * as chalk from "chalk";
-import * as ora from "ora";
+import chalk from "chalk";
+import ora from "ora";
 /**
  * Color palette for consistent terminal styling across the application.
  * Uses a vibrant, modern color scheme with good contrast for readability.

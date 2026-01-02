@@ -86,3 +86,4 @@ deployment/*
 
 .turbo
 install.sh
+.npmrc
