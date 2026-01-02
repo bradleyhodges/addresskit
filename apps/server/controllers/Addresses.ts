@@ -5,6 +5,7 @@ import {
     getAddress as fetchAddress,
     getAddresses as fetchAddresses,
 } from "../service";
+import { JSONAPI_CONTENT_TYPE } from "../service/helpers/jsonapi";
 
 /**
  * Structured response from address service functions.
@@ -61,7 +62,7 @@ const logger = debug("api:addresses");
 const errorLogger = debug("error:addresses");
 
 /**
- * Writes a standardized error response to the client.
+ * Writes a standardized JSON:API error response to the client.
  * Used for consistent error handling across all address endpoints.
  *
  * @param response - Express response object.
@@ -80,10 +81,18 @@ const writeErrorResponse = (
         errorLogger(`Error [${statusCode}]: ${message}`, errorDetails);
     }
 
-    // Set response headers and send error payload
-    response.setHeader("Content-Type", "application/json");
+    // Set response headers and send JSON:API error payload
+    response.setHeader("Content-Type", JSONAPI_CONTENT_TYPE);
     response.status(statusCode);
-    response.json({ error: message });
+    response.json({
+        jsonapi: { version: "1.1" },
+        errors: [
+            {
+                status: String(statusCode),
+                title: message,
+            },
+        ],
+    });
 };
 
 /**
@@ -118,10 +127,10 @@ export function getAddress(request: SwaggerRequest, response: Response): void {
 
     addressPromise
         .then((addressResponse) => {
-            // Handle error responses from the service layer
+            // Handle error responses from the service layer (JSON:API error documents)
             if (addressResponse.statusCode !== undefined) {
-                // Set content type and return the error response
-                response.setHeader("Content-Type", "application/json");
+                // Set JSON:API content type and return the error response
+                response.setHeader("Content-Type", JSONAPI_CONTENT_TYPE);
                 response.status(addressResponse.statusCode);
                 response.json(addressResponse.json);
                 return;
@@ -132,7 +141,8 @@ export function getAddress(request: SwaggerRequest, response: Response): void {
                 response.setHeader("link", addressResponse.link.toString());
             }
 
-            // Write the address data as JSON
+            // Set JSON:API content type and write the address data
+            response.setHeader("Content-Type", JSONAPI_CONTENT_TYPE);
             writeJson(response, addressResponse.json);
         })
         .catch((error: unknown) => {
@@ -181,9 +191,9 @@ export function getAddresses(
 
     addressesPromise
         .then((addressesResponse) => {
-            // Handle error responses from the service layer
+            // Handle error responses from the service layer (JSON:API error documents)
             if (addressesResponse.statusCode !== undefined) {
-                response.setHeader("Content-Type", "application/json");
+                response.setHeader("Content-Type", JSONAPI_CONTENT_TYPE);
                 response.status(addressesResponse.statusCode);
                 response.json(addressesResponse.json);
                 return;
@@ -202,7 +212,8 @@ export function getAddresses(
                 );
             }
 
-            // Write the search results as JSON
+            // Set JSON:API content type and write the search results
+            response.setHeader("Content-Type", JSONAPI_CONTENT_TYPE);
             writeJson(response, addressesResponse.json);
         })
         .catch((error: unknown) => {

@@ -21,7 +21,7 @@ AddressKit is actively maintained and developed by [Bradley Hodges](https://gith
 
 *Addressr* (the library which AddressKit was forked from) is licensed under the [Apache 2.0](https://github.com/mountain-pass/addressr/blob/f0eb2faa6098e69e5a912e4b6af70c73e5b380a3/LICENSE.md), which expressly permits commercial use, modification, distribution, and sublicensing. You can read more about Apache 2.0 license terms [here](https://www.tldrlegal.com/license/apache-license-2-0-apache-2-0). 
 
-***AddressKit*** is licensed under the [GNU GPLv2](https://www.tldrlegal.com/license/gnu-general-public-license-v2) license.
+**AddressKit is licensed under the [GNU GPLv2](https://github.com/bradleyhodges/addresskit/blob/master/LICENSE)** license. You can read more about the GNU GPLv2 license [here](https://www.tldrlegal.com/license/gnu-general-public-license-v2).
 
 ## Features
 AddressKit is a comprehensive solution for managing and validating Australian addresses. Notable features include:
@@ -30,6 +30,7 @@ AddressKit is a comprehensive solution for managing and validating Australian ad
 - ✅ **Canonical validation**: Validation is built into AddressKit's core data model since every address is resolved from the [G-NAF](https://data.gov.au/data/dataset/geocoded-national-address-file-g-naf) by default, so "valid" automatically means "authoritatively correct"
 - ✅ **Always up-to-date:** AddressKit automatically refreshes its data from the [G-NAF](https://data.gov.au/data/dataset/geocoded-national-address-file-g-naf) every 3 months
 - ✅ **Real-time address validation:** Address validation and autocomplete for Australian addresses
+- ✅ **JSON:API compliant:** RESTful API conforming to the [JSON:API v1.1 specification](https://jsonapi.org/format/) for standardized, predictable responses
 - ✅ **Easy to use API:** Straightforward REST API and CLI service for building your own address validation and autocomplete solutions
 - ✅ **Beautiful CLI:** Modern command-line interface with colorful output, progress indicators, and intuitive commands
 - ✅ **Run on your own infrastructure or use ours:** Self-host or use our hosted solution
@@ -50,6 +51,9 @@ AddressKit is a comprehensive solution for managing and validating Australian ad
 - [Quick Start](#quick-start)
   - [Self Hosted](#self-hosted)
 - [API Endpoints](#api-endpoints)
+  - [Search / Autocomplete](#search--autocomplete)
+  - [Get Address Details](#get-address-details)
+  - [Error Responses](#error-responses)
 - [Configuration](#configuration)
 - [System Requirements](#system-requirements)
 
@@ -294,12 +298,16 @@ addresskit start --port 3000
 ### 6. Test the API
 
 ```bash
-# Search for addresses
-curl -i "http://localhost:8080/addresses?q=LEVEL+25,+TOWER+3"
+# Search for addresses (autocomplete)
+curl -H "Accept: application/vnd.api+json" \
+  "http://localhost:8080/addresses?q=LEVEL+25,+TOWER+3"
 
-# Get a specific address by ID
-curl -i "http://localhost:8080/addresses/GAVIC411711441"
+# Get detailed information for a specific address
+curl -H "Accept: application/vnd.api+json" \
+  "http://localhost:8080/addresses/GAVIC411711441"
 ```
+
+The API returns JSON:API compliant responses. See [API Endpoints](#api-endpoints) for detailed examples.
 
 ### 7. Keep Data Updated
 
@@ -316,34 +324,187 @@ Create a scheduled task to run `addresskit load --clear` monthly.
 
 # API Endpoints
 
+The AddressKit API conforms to the [JSON:API v1.1 specification](https://jsonapi.org/format/). All responses use the `application/vnd.api+json` media type.
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/addresses?q=<query>` | GET | Search for addresses matching the query |
-| `/addresses?q=<query>&p=<page>` | GET | Search with pagination |
+| `/addresses?q=<query>` | GET | Search for addresses (autocomplete) |
+| `/addresses?q=<query>&page[number]=<n>` | GET | Search with pagination |
 | `/addresses/:id` | GET | Get detailed information for a specific address |
 | `/docs` | GET | OpenAPI/Swagger documentation |
 
-**Search Example:**
+## Search / Autocomplete
+
+Search for addresses matching a query string. Returns lightweight autocomplete suggestions optimized for typeahead UX.
+
+**Request:**
 
 ```bash
-curl "http://localhost:8080/addresses?q=123+main+street+sydney"
+curl -H "Accept: application/vnd.api+json" \
+  "http://localhost:8080/addresses?q=300+barangaroo"
 ```
 
 **Response:**
 
 ```json
-[
-  {
-    "sla": "123 MAIN STREET, SYDNEY NSW 2000",
-    "score": 45.2,
-    "links": {
-      "self": {
-        "href": "/addresses/GANSW12345678"
+{
+  "jsonapi": {
+    "version": "1.1"
+  },
+  "data": [
+    {
+      "type": "address-suggestion",
+      "id": "GANSW716635811",
+      "attributes": {
+        "sla": "LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000",
+        "rank": 1
+      },
+      "links": {
+        "self": "/addresses/GANSW716635811"
+      }
+    },
+    {
+      "type": "address-suggestion",
+      "id": "GANSW716635812",
+      "attributes": {
+        "sla": "LEVEL 26, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000",
+        "rank": 0.92
+      },
+      "links": {
+        "self": "/addresses/GANSW716635812"
       }
     }
+  ],
+  "links": {
+    "self": "/addresses?q=300+barangaroo",
+    "first": "/addresses?q=300+barangaroo",
+    "prev": null,
+    "next": "/addresses?q=300+barangaroo&page[number]=2",
+    "last": "/addresses?q=300+barangaroo&page[number]=5"
+  },
+  "meta": {
+    "total": 42,
+    "page": 1,
+    "pageSize": 10,
+    "totalPages": 5
   }
-]
+}
 ```
+
+## Get Address Details
+
+Retrieve comprehensive details for a specific address by its G-NAF Persistent Identifier (PID). Use this endpoint after a user selects an address from the autocomplete results.
+
+**Request:**
+
+```bash
+curl -H "Accept: application/vnd.api+json" \
+  "http://localhost:8080/addresses/GANSW716635811"
+```
+
+**Response:**
+
+```json
+{
+  "jsonapi": {
+    "version": "1.1"
+  },
+  "data": {
+    "type": "address",
+    "id": "GANSW716635811",
+    "attributes": {
+      "pid": "GANSW716635811",
+      "sla": "LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000",
+      "ssla": "25/300 BARANGAROO AV, BARANGAROO NSW 2000",
+      "mla": [
+        "LEVEL 25",
+        "TOWER 3",
+        "300 BARANGAROO AV",
+        "BARANGAROO NSW 2000"
+      ],
+      "structured": {
+        "buildingName": "Tower 3",
+        "level": {
+          "type": { "name": "Level", "code": "L" },
+          "number": 25
+        },
+        "number": {
+          "number": 300
+        },
+        "street": {
+          "name": "Barangaroo",
+          "type": { "name": "Avenue", "code": "AV" }
+        },
+        "locality": {
+          "name": "Barangaroo",
+          "class": { "code": "G", "name": "GAZETTED LOCALITY" }
+        },
+        "state": {
+          "name": "New South Wales",
+          "abbreviation": "NSW"
+        },
+        "postcode": "2000",
+        "confidence": 2
+      },
+      "geo": {
+        "level": {
+          "code": 7,
+          "name": "LOCALITY, STREET, ADDRESS"
+        },
+        "geocodes": [
+          {
+            "latitude": -33.8535,
+            "longitude": 151.2012,
+            "isDefault": true,
+            "reliability": {
+              "code": 2,
+              "name": "WITHIN ADDRESS SITE BOUNDARY OR ACCESS POINT"
+            },
+            "type": {
+              "code": 2,
+              "name": "PROPERTY CENTROID"
+            }
+          }
+        ]
+      }
+    },
+    "links": {
+      "self": "/addresses/GANSW716635811"
+    }
+  },
+  "links": {
+    "self": "/addresses/GANSW716635811"
+  }
+}
+```
+
+## Error Responses
+
+All error responses follow the JSON:API error format:
+
+```json
+{
+  "jsonapi": {
+    "version": "1.1"
+  },
+  "errors": [
+    {
+      "status": "404",
+      "code": "RESOURCE_NOT_FOUND",
+      "title": "Not Found",
+      "detail": "The address with ID 'INVALID_123' does not exist."
+    }
+  ]
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| `400` | Bad Request - Invalid query parameters |
+| `404` | Not Found - Address ID does not exist |
+| `500` | Internal Server Error - Unexpected error |
+| `503` | Service Unavailable - OpenSearch unavailable |
+| `504` | Gateway Timeout - Query timeout |
 
 # Configuration
 
@@ -375,21 +536,25 @@ curl "http://localhost:8080/addresses?q=123+main+street+sydney"
 
 - OpenSearch >= 1.2.4
 - Memory: 1.4 GiB minimum
+- CPU: 1 core
 
 ## AddressKit Loader
 
 ### Default (without geocoding)
 - Node.js >= 20.0.0
 - Memory: 1 GiB
+- CPU: 1 core
 
 ### With Geocoding Enabled
 - Node.js >= 20.0.0
 - Memory: 8 GiB
+- CPU: 4 cores
 
 ## AddressKit Server
 
 - Node.js >= 20.0.0
-- Memory: 64 MiB
+- Memory: 64 MiB (128 MiB+ recommended)
+- CPU: 1 core
 
 ## Supported Platforms
 

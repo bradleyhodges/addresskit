@@ -9,6 +9,7 @@ export * from "./resourceMonitor";
 export * from "./searchCache";
 export * from "./circuitBreaker";
 export * from "./terminalUI";
+export * from "./jsonapi";
 
 // Re-export clearAuthorityCodeMaps for use during data reload
 export { clearAuthorityCodeMaps } from "./propertyCodeToName";

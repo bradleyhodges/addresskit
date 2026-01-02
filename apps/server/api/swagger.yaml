@@ -1,16 +1,27 @@
 swagger: '2.0'
 info:
   description: |
-    Free Australian Address Validation, Search and Autocomplete
-  version: '1.0.0'
+    Scalable address ingestion, validation, search, and autocomplete engine for Australian addresses.
+    
+    This API conforms to the [JSON:API v1.1 specification](https://jsonapi.org/format/).
+    All responses use the `application/vnd.api+json` media type.
+  version: '2.0.0'
   title: 'AddressKit'
+  contact:
+    name: 'AddressKit Support'
+  license:
+    name: 'MIT'
 basePath: '/'
 tags:
   - name: address
+    description: Australian address lookup and autocomplete operations
 schemes:
   - 'https'
+  - 'http'
+consumes:
+  - 'application/vnd.api+json'
 produces:
-  - 'application/json'
+  - 'application/vnd.api+json'
 paths:
   /:
     get:
@@ -19,7 +30,8 @@ paths:
       x-swagger-router-controller: Default
       x-root-rel: self
       description: |
-        returns a list of available APIs within the `Link` headers
+        Returns a list of available APIs within the `Link` headers.
+        This endpoint serves as the HATEOAS entry point for API discoverability.
       responses:
         200:
           description: successful operation
@@ -27,14 +39,14 @@ paths:
             $ref: '#/definitions/Root'
           headers:
             link:
-              description: rfc5988 Links
+              description: RFC 5988 Links for resource discovery
               type: array
               collectionFormat: csv
               items:
                 type: string
                 pattern: '<(.*)>;(.*)'
             link-template:
-              description: rfc6570 Links Templates
+              description: RFC 6570 Link Templates for parameterized endpoints
               type: array
               collectionFormat: csv
               items:
@@ -43,463 +55,772 @@ paths:
         503:
           description: service unavailable
           schema:
-            $ref: "#/definitions/Error"
+            $ref: "#/definitions/JsonApiErrorDocument"
         500:
           description: unexpected error 
           schema:
-            $ref: "#/definitions/Error"
+            $ref: "#/definitions/JsonApiErrorDocument"
   /addresses:
     get:
-      summary: Get List of Addresses
+      summary: Search Addresses (Autocomplete)
       operationId: getAddresses
       x-swagger-router-controller: Addresses
       description: |
-        returns a list of addresses matching the search string
+        Searches for addresses matching the query string and returns lightweight
+        autocomplete suggestions optimized for typeahead UX.
+        
+        Each result contains only the display text (SLA) and address ID. Use the
+        `/addresses/{addressId}` endpoint to retrieve full address details.
+        
+        Results are paginated using JSON:API pagination parameters.
       tags:
         - address
       parameters:
         - name: q
           in: query
-          description: search string
+          description: |
+            Search query string. Supports fuzzy matching against single-line
+            addresses (SLA). Minimum 3 characters required.
           type: string
           minLength: 3
           required: true
-        - name: p
+        - name: page[number]
           in: query
-          description: page number
+          description: |
+            Page number for pagination (1-indexed). Defaults to 1.
           type: integer
-          minimum: 2
+          minimum: 1
+          required: false
+        - name: page[size]
+          in: query
+          description: |
+            Number of results per page. Defaults to 10, maximum 100.
+          type: integer
+          minimum: 1
+          maximum: 100
           required: false
       responses:
         200:
           description: successful query
           schema:
-            $ref: '#/definitions/SearchResponse'
+            $ref: '#/definitions/AddressAutocompleteDocument'
           headers:
             link:
-              description: rfc5988 Links
+              description: RFC 5988 Links for pagination
               type: array
               collectionFormat: csv
               items:
                 type: string
                 pattern: '<(.*)>;(.*)'
             link-template:
-              description: rfc6570 Links Templates
+              description: RFC 6570 Link Templates
               type: array
               collectionFormat: csv
               items:
                 type: string
                 pattern: '<(.*)>;(.*)'
         400:
-          description: invalid query
+          description: invalid query parameters
           schema:
-            $ref: '#/definitions/ValidationError'
+            $ref: '#/definitions/JsonApiErrorDocument'
         503:
           description: service unavailable
           schema:
-            $ref: "#/definitions/Error"
+            $ref: "#/definitions/JsonApiErrorDocument"
+        504:
+          description: gateway timeout
+          schema:
+            $ref: "#/definitions/JsonApiErrorDocument"
         500:
           description: unexpected error 
           schema:
-            $ref: "#/definitions/Error"
+            $ref: "#/definitions/JsonApiErrorDocument"
   /addresses/{addressId}:
     get:
-      summary: Get Address
+      summary: Get Address Details
       operationId: getAddress
       x-swagger-router-controller: Addresses
       description: |
-        returns detailed information about a specific address
+        Returns comprehensive details about a specific address by its unique
+        G-NAF Persistent Identifier (PID).
+        
+        The response includes:
+        - Single-line and multi-line address formats
+        - Fully structured address components (flat, level, street, locality, etc.)
+        - Geocoding information when available
       tags:
         - address
       parameters:
         - name: addressId
           in: path
-          description: ID of the address.
+          description: |
+            The unique G-NAF Persistent Identifier (PID) for the address.
+            Example: `GANT_718592778`
           type: string
           required: true
       responses:
         200:
           description: successful query
           schema:
-            $ref: '#/definitions/Address'
+            $ref: '#/definitions/AddressDetailDocument'
           headers:
             link:
-              description: rfc5988 Links
+              description: RFC 5988 Links
               type: array
               collectionFormat: csv
               items:
                 type: string
                 pattern: '<(.*)>;(.*)'
-            link-template:
-              description: rfc6570 Links Templates
-              type: array
-              collectionFormat: csv
-              items:
-                type: string
-                pattern: '<(.*)>;(.*)'
+            ETag:
+              description: Entity tag for cache validation
+              type: string
+        404:
+          description: address not found
+          schema:
+            $ref: "#/definitions/JsonApiErrorDocument"
         503:
           description: service unavailable
           schema:
-            $ref: "#/definitions/Error"
+            $ref: "#/definitions/JsonApiErrorDocument"
         500:
           description: unexpected error 
           schema:
-            $ref: "#/definitions/Error"
+            $ref: "#/definitions/JsonApiErrorDocument"
 definitions:
-  Root:
+  # ============================================================================
+  # JSON:API Core Types
+  # ============================================================================
+  JsonApiVersion:
     type: object
-  SearchResponse:
-    type: array
-    description: |
-      The list of addresses matching the search string. The list may be paginated.
-      A the `Link` header with a `rel` of `next` will be provided if there are additional results.
-    items:
-      type: object
-      title: Flattened Address
-      required:
-        - sla
-        - score
-        - links
-      properties:
-        sla:
-          $ref: '#/definitions/SingleLineAddress'
-        score:
-          type: number
-          description: strength of the match relative to the other matches
-        links:
-          type: object
-          required:
-            - self
-          properties:
-            self:
-              type: object
-              required:
-                - href
-              properties:
-                href:
-                  type: string
-                  title: Link
-                  description: |
-                    The URL for the address, where additional information can be retrieved
-    example:
-      - sla: LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000
-        score: 1
-        links:
-          self:
-            href: /addresses/GANT_718592778
-      - sla: 109 KIRRIBILLI AV, KIRRIBILLI NSW 2061
-        score: 0.985051936618461
-        links:
-          self:
-            href: /addresses/GANT_718592782
-  Address:
-    type: object
-    title: Physical Australian Address
-    description: |
-      A physical Australian address in structured and unstructured formats.
-
-      If an address has a "flat" component (e.g. UNIT 12, 32 SOME ST...), then it will also have a
-      the `ssla` and `smla` fields, which are shortended versions of `sla` and `mla`. e.g. (12/32 SOME ST...)
-    required:
-      - 'pid'
-      - 'structured'
-      - 'sla'
-      - 'mla'
+    description: JSON:API implementation information
     properties:
-      pid:
+      version:
         type: string
-        description: The Persistent Identifier is unique to the real world feature this record represents.
-        example: GANT_718592778
-      structured:
-        $ref: '#/definitions/StructuredAddress'
-      sla:
-        $ref: '#/definitions/SingleLineAddress'
-      ssla:
-        $ref: '#/definitions/SingleLineAddress'
-      mla:
-        $ref: '#/definitions/MultiLineAddress'
-      smla:
-        $ref: '#/definitions/MultiLineAddress'
-      geo:
-        $ref: '#/definitions/AddressGeocoding'
-  AddressGeocoding:
+        example: "1.1"
+        description: JSON:API specification version
+  
+  JsonApiLinks:
     type: object
-    description: Geocoding information about the address
+    description: JSON:API links object for HATEOAS navigation
     properties:
-      level:
+      self:
+        type: string
+        description: Link to the current resource or page
+        example: /addresses?q=sydney
+      first:
+        type: string
+        description: Link to the first page of results
+        example: /addresses?q=sydney
+      prev:
+        type: string
+        description: Link to the previous page of results (null if on first page)
+        x-nullable: true
+      next:
+        type: string
+        description: Link to the next page of results (null if on last page)
+        x-nullable: true
+      last:
+        type: string
+        description: Link to the last page of results
+        example: /addresses?q=sydney&page[number]=5
+      describedby:
+        type: object
+        description: Link to API documentation
+        properties:
+          href:
+            type: string
+            example: /docs/#operations-addresses-getAddresses
+          title:
+            type: string
+            example: getAddresses API Docs
+          type:
+            type: string
+            example: text/html
+  
+  JsonApiMeta:
+    type: object
+    description: Pagination and response metadata
+    properties:
+      total:
+        type: integer
+        description: Total number of resources matching the query
+        example: 42
+      page:
+        type: integer
+        description: Current page number (1-indexed)
+        example: 1
+      pageSize:
+        type: integer
+        description: Number of items per page
+        example: 10
+      totalPages:
+        type: integer
+        description: Total number of pages available
+        example: 5
+      responseTime:
+        type: integer
+        description: Query processing time in milliseconds
+        example: 45
+  
+  JsonApiError:
+    type: object
+    description: JSON:API error object
+    properties:
+      status:
+        type: string
+        description: HTTP status code as a string
+        example: "404"
+      code:
+        type: string
+        description: Application-specific error code
+        example: RESOURCE_NOT_FOUND
+      title:
+        type: string
+        description: Short human-readable summary
+        example: Not Found
+      detail:
+        type: string
+        description: Detailed explanation of the error
+        example: The address with ID 'INVALID_123' does not exist.
+      source:
+        type: object
+        description: Error source information
+        properties:
+          pointer:
+            type: string
+            description: JSON Pointer to the request value that caused the error
+          parameter:
+            type: string
+            description: Query parameter that caused the error
+  
+  JsonApiErrorDocument:
+    type: object
+    description: JSON:API error response document
+    required:
+      - errors
+    properties:
+      jsonapi:
+        $ref: '#/definitions/JsonApiVersion'
+      errors:
+        type: array
+        items:
+          $ref: '#/definitions/JsonApiError'
+        minItems: 1
+      meta:
+        type: object
+        description: Document-level metadata
+        properties:
+          retryAfter:
+            type: integer
+            description: Seconds to wait before retrying (for 503 responses)
+            example: 30
+  
+  # ============================================================================
+  # Address Autocomplete Types
+  # ============================================================================
+  AddressAutocompleteAttributes:
+    type: object
+    description: Minimal address data for autocomplete suggestions
+    required:
+      - sla
+      - rank
+    properties:
+      sla:
+        type: string
+        description: Single-line address for display in autocomplete dropdown
+        example: LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000
+      ssla:
+        type: string
+        description: Short single-line address (for unit addresses)
+        example: 25/300 BARANGAROO AV, BARANGAROO NSW 2000
+      rank:
+        type: number
+        format: float
+        description: Relevance score normalized to 0-1 range (1 = best match)
+        minimum: 0
+        maximum: 1
+        example: 0.95
+  
+  AddressAutocompleteResource:
+    type: object
+    description: JSON:API resource for an autocomplete suggestion
+    required:
+      - type
+      - id
+      - attributes
+    properties:
+      type:
+        type: string
+        enum: [address-suggestion]
+        description: Resource type identifier
+        example: address-suggestion
+      id:
+        type: string
+        description: Unique address identifier (G-NAF PID)
+        example: GANT_718592778
+      attributes:
+        $ref: '#/definitions/AddressAutocompleteAttributes'
+      links:
+        type: object
+        properties:
+          self:
+            type: string
+            description: Link to full address details
+            example: /addresses/GANT_718592778
+  
+  AddressAutocompleteDocument:
+    type: object
+    description: JSON:API document containing autocomplete results
+    required:
+      - data
+    properties:
+      jsonapi:
+        $ref: '#/definitions/JsonApiVersion'
+      data:
+        type: array
+        items:
+          $ref: '#/definitions/AddressAutocompleteResource'
+        description: Array of autocomplete suggestion resources
+      links:
+        $ref: '#/definitions/JsonApiLinks'
+      meta:
+        $ref: '#/definitions/JsonApiMeta'
+    example:
+      jsonapi:
+        version: "1.1"
+      data:
+        - type: address-suggestion
+          id: GANT_718592778
+          attributes:
+            sla: LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000
+            rank: 1
+          links:
+            self: /addresses/GANT_718592778
+        - type: address-suggestion
+          id: GANT_718592782
+          attributes:
+            sla: 109 KIRRIBILLI AV, KIRRIBILLI NSW 2061
+            rank: 0.85
+          links:
+            self: /addresses/GANT_718592782
+      links:
+        self: /addresses?q=barangaroo
+        first: /addresses?q=barangaroo
+        prev: null
+        next: /addresses?q=barangaroo&page[number]=2
+        last: /addresses?q=barangaroo&page[number]=5
+      meta:
+        total: 42
+        page: 1
+        pageSize: 10
+        totalPages: 5
+  
+  # ============================================================================
+  # Address Detail Types
+  # ============================================================================
+  AddressNumberRange:
+    type: object
+    description: Number component with optional prefix and suffix
+    properties:
+      prefix:
+        type: string
+        maxLength: 3
+        example: RMB
+      number:
+        type: integer
+        example: 42
+      suffix:
+        type: string
+        maxLength: 2
+        example: A
+  
+  AddressNumber:
+    type: object
+    description: Street number with optional range
+    allOf:
+      - $ref: '#/definitions/AddressNumberRange'
+      - type: object
+        properties:
+          last:
+            $ref: '#/definitions/AddressNumberRange'
+            description: End of number range (for "10-12 Smith St" style)
+  
+  AddressFlat:
+    type: object
+    description: Flat/unit details
+    properties:
+      type:
+        type: object
+        properties:
+          name:
+            type: string
+            example: Unit
+            maxLength: 50
+          code:
+            type: string
+            example: U
+            maxLength: 7
+      prefix:
+        type: string
+        maxLength: 2
+      number:
+        type: integer
+        example: 12
+      suffix:
+        type: string
+        maxLength: 2
+  
+  AddressLevel:
+    type: object
+    description: Building level/floor details
+    properties:
+      type:
+        type: object
+        properties:
+          name:
+            type: string
+            example: Level
+            maxLength: 50
+          code:
+            type: string
+            example: L
+            maxLength: 4
+      prefix:
+        type: string
+        maxLength: 2
+      number:
+        type: integer
+        example: 25
+      suffix:
+        type: string
+        maxLength: 2
+  
+  AddressStreet:
+    type: object
+    description: Street details
+    properties:
+      name:
+        type: string
+        example: Barangaroo
+        maxLength: 100
+      type:
+        type: object
+        properties:
+          name:
+            type: string
+            example: Avenue
+            maxLength: 50
+          code:
+            type: string
+            example: AV
+            maxLength: 15
+      suffix:
+        type: object
+        properties:
+          name:
+            type: string
+            example: North
+            maxLength: 50
+          code:
+            type: string
+            example: N
+            maxLength: 15
+  
+  AddressLocality:
+    type: object
+    description: Locality (suburb/town) details
+    properties:
+      name:
+        type: string
+        example: Barangaroo
+        maxLength: 100
+      class:
+        type: object
+        properties:
+          code:
+            type: string
+            example: G
+            maxLength: 1
+          name:
+            type: string
+            example: GAZETTED LOCALITY
+            maxLength: 50
+  
+  AddressState:
+    type: object
+    description: Australian state/territory
+    properties:
+      name:
+        type: string
+        example: New South Wales
+        maxLength: 50
+      abbreviation:
+        type: string
+        example: NSW
+        maxLength: 3
+  
+  AddressLotNumber:
+    type: object
+    description: Lot number for rural/unaddressed properties
+    properties:
+      prefix:
+        type: string
+        maxLength: 2
+      number:
+        type: string
+        maxLength: 5
+      suffix:
+        type: string
+        maxLength: 2
+  
+  AddressGeocode:
+    type: object
+    description: Geographic coordinate for the address
+    properties:
+      latitude:
+        type: number
+        format: double
+        example: -33.85351875
+      longitude:
+        type: number
+        format: double
+        example: 150.8947369
+      isDefault:
+        type: boolean
+        description: Whether this is the default geocode for the address
+        example: true
+      reliability:
         type: object
         properties:
           code:
             type: integer
-            maxLength: 2
-            description: |
-              Binary indicator of the level of geocoding this address has. e.g. 0 = 000 = (No geocode), 1 = 001 = (No Locality geocode, No Street geocode, Address geocode), etc.
-            example: 7
+            description: Reliability code (1=best, 6=worst)
+            example: 2
           name:
             type: string
-            maxLength: 50
-            description: |
-              Name of the geocode level type code.
-            example: LOCALITY,STREET, ADDRESS
-      geocodes:
-        type: array
-        items:
-          type: object
-          properties:
-            default:
-              type: boolean
-              description: |
-                Indicates if the geocode is the default or a site geocode (i.e. from *_ADDRESS_DEFAULT_GEOCODE_psv or from *_ADDRESS_SITE_GEOCODE_psv)
-            latitude:
-              type: number
-              example: -33.85351875
-            longitude:
-              type: number
-              example: 150.8947369
-            reliability:
-              type: object
-              properties:
-                code:
-                  type: integer
-                  maxLength: 1
-                  description: |
-                    Spatial precision of the geocode expressed as number in the range, 1 (unique identification of feature) to 6 (feature associated to region i.e. postcode).
-                  example: 2
-                name:
-                  type: string
-                  maxLength: 50
-                  description: |
-                    Name of the geocode reliability code.
-                  example: WITHIN ADDRESS SITE BOUNDARY OR ACCESS POINT
-            type:
-              type: object
-              properties:
-                code:
-                  type: integer
-                  maxLength: 1
-                  description: |
-                    Unique abbreviation for geocode feature. (e.g. "PRCL") (SAWG 7.4.1).
-                  example: 2
-                name:
-                  type: string
-                  maxLength: 50
-                  description: |
-                    Name of the geocode type code.
-                  example: PROPERTY CENTROID
-            description:
-              type: string
-              maxLength: 50
-              description: |
-                Additional textual data
-              example: REAR
-  SingleLineAddress:
-    type: string
-    title: Single Line Address
-    description: |
-      The full address flattened to a single line. The primary use is for search results and for autocomplete.
-    example: LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000
-  MultiLineAddress:
-    type: array
-    items:
-      type: string
-    minItems: 2
-    maxItems: 4
-    title: Multi Line Address
-    description: |
-      The full address flattened to at most four lines. The primary use is for address labels
-    example:
-      - LEVEL 25
-      - TOWER 3
-      - 300 BARANGAROO AV
-      - BARANGAROO NSW 2000
+            example: WITHIN ADDRESS SITE BOUNDARY OR ACCESS POINT
+      type:
+        type: object
+        properties:
+          code:
+            type: integer
+            example: 2
+          name:
+            type: string
+            example: PROPERTY CENTROID
+      description:
+        type: string
+        description: Additional textual description
+        example: REAR
+  
+  AddressGeoLevel:
+    type: object
+    description: Geocoding level achieved for this address
+    properties:
+      code:
+        type: integer
+        description: Binary indicator of geocoding level (0-7)
+        example: 7
+      name:
+        type: string
+        description: Human-readable geocoding level description
+        example: LOCALITY, STREET, ADDRESS
+  
   StructuredAddress:
     type: object
+    description: Fully parsed address components
     properties:
       buildingName:
         type: string
+        description: Building or property name
         maxLength: 200
-        example: Vickery Lodge
-        description: |
-          Combines both building/property name fields. (AS4590:2006 5.7).
+        example: Tower 3
       lotNumber:
-        type: object
-        properties:
-          prefix:
-            type: string
-            example: A
-            maxLength: 2
-          number:
-            type: string
-            example: CP
-            maxLength: 5
-          suffix:
-            type: string
-            example: B
-            maxLength: 2
+        $ref: '#/definitions/AddressLotNumber'
       flat:
-        type: object
-        properties:
-          type:
-            type: object
-            properties:
-              name:
-                type: string
-                example: Tower
-                maxLength: 50
-              code:
-                type: string
-                example: Twr
-                maxLength: 7
-          prefix:
-            type: string
-            example: CT
-            maxLength: 2
-          number:
-            type: integer
-            example: 20114
-          suffix:
-            type: string
-            example: AG
-            maxLength: 2
+        $ref: '#/definitions/AddressFlat'
       level:
-        type: object
-        properties:
-          type:
-            type: object
-            properties:
-              na,e:
-                type: string
-                example: Observation Deck
-                maxLength: 50
-              code:
-                type: string
-                example: OD
-                maxLength: 4
-          prefix:
-            type: string
-            example: A
-            maxLength: 2
-          number:
-            type: integer
-            example: '64'
-            maxLength: 5
-          suffix:
-            type: string
-            example: QG
-            maxLength: 2
+        $ref: '#/definitions/AddressLevel'
       number:
-        type: object
-        properties:
-          prefix:
-            type: string
-            example: RMB
-            maxLength: 3
-          number:
-            type: integer
-            example: '20114'
-            maxLength: 6
-          suffix:
-            type: string
-            example: 'AA'
-            maxLength: 2
-          last:
-            type: object
-            properties:
-              prefix:
-                type: string
-                example: RMB
-                maxLength: 3
-              number:
-                type: integer
-                example: '20114'
-                maxLength: 6
-              suffix:
-                type: string
-                example: 'C'
-                maxLength: 2
+        $ref: '#/definitions/AddressNumber'
       street:
-        type: object
-        properties:
-          name:
-            type: string
-            example: Barangaroo
-            maxLength: 100
-          type:
-            type: object
-            properties:
-              name:
-                type: string
-                example: Av
-                maxLength: 15
-              code:
-                type: string
-                example: Avenue
-                maxLength: 50
-          suffix:
-            type: object
-            properties:
-              name:
-                type: string
-                example: Deviation
-                maxLength: 50
-              code:
-                type: string
-                example: De
-                maxLength: 15
+        $ref: '#/definitions/AddressStreet'
       locality:
-        type: object
-        properties:
-          name:
-            type: string
-            example: Sydney
-            maxLength: 100
-          class:
-            type: object
-            properties:
-              code:
-                type: string
-                example: G
-                maxLength: 1
-              name:
-                type: string
-                example: GAZETTED LOCALITY
-                maxLength: 50
+        $ref: '#/definitions/AddressLocality'
       state:
-        type: object
-        properties:
-          name:
-            type: string
-            example: New South Wales
-            maxLength: 50
-          abbreviation:
-            type: string
-            example: NSW
-            maxLength: 3
+        $ref: '#/definitions/AddressState'
       postcode:
         type: string
+        pattern: '^\d{4}$'
         example: '2000'
-        maxLength: 4
+        description: Australian 4-digit postcode
       confidence:
         type: integer
-        description: |
-          Reflects how many contributor databases this address appears in (0 = 1 database, 1 = 2 database etc.).
-  ValidationError:
+        description: Address confidence score (0-2, higher = more confidence)
+        minimum: 0
+        maximum: 2
+        example: 2
+  
+  AddressGeo:
     type: object
+    description: Geocoding information for the address
     properties:
-      code:
+      level:
+        $ref: '#/definitions/AddressGeoLevel'
+      geocodes:
+        type: array
+        items:
+          $ref: '#/definitions/AddressGeocode'
+        description: Array of geocode points for this address
+  
+  AddressDetailAttributes:
+    type: object
+    description: Complete address details including structured components
+    required:
+      - pid
+      - sla
+      - structured
+    properties:
+      pid:
         type: string
-      failedValidation:
-        type: boolean
-      path:
+        description: G-NAF Persistent Identifier (unique address ID)
+        example: GANT_718592778
+      sla:
+        type: string
+        description: Single-line address for display
+        example: LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000
+      ssla:
+        type: string
+        description: Short single-line address (for unit addresses)
+        example: 25/300 BARANGAROO AV, BARANGAROO NSW 2000
+      mla:
         type: array
         items:
           type: string
-      paramName:
-        type: string
-      message:
-        type: string
-  Error:
+        minItems: 2
+        maxItems: 4
+        description: Multi-line address for mailing labels
+        example:
+          - LEVEL 25
+          - TOWER 3
+          - 300 BARANGAROO AV
+          - BARANGAROO NSW 2000
+      smla:
+        type: array
+        items:
+          type: string
+        minItems: 2
+        maxItems: 4
+        description: Short multi-line address
+      structured:
+        $ref: '#/definitions/StructuredAddress'
+      geo:
+        $ref: '#/definitions/AddressGeo'
+  
+  AddressDetailResource:
     type: object
+    description: JSON:API resource for a detailed address
+    required:
+      - type
+      - id
+      - attributes
     properties:
-      error:
+      type:
         type: string
+        enum: [address]
+        description: Resource type identifier
+        example: address
+      id:
+        type: string
+        description: Unique address identifier (G-NAF PID)
+        example: GANT_718592778
+      attributes:
+        $ref: '#/definitions/AddressDetailAttributes'
+      links:
+        type: object
+        properties:
+          self:
+            type: string
+            description: Self-referential link
+            example: /addresses/GANT_718592778
+  
+  AddressDetailDocument:
+    type: object
+    description: JSON:API document containing detailed address information
+    required:
+      - data
+    properties:
+      jsonapi:
+        $ref: '#/definitions/JsonApiVersion'
+      data:
+        $ref: '#/definitions/AddressDetailResource'
+      links:
+        type: object
+        properties:
+          self:
+            type: string
+            example: /addresses/GANT_718592778
+    example:
+      jsonapi:
+        version: "1.1"
+      data:
+        type: address
+        id: GANT_718592778
+        attributes:
+          pid: GANT_718592778
+          sla: LEVEL 25, TOWER 3, 300 BARANGAROO AV, BARANGAROO NSW 2000
+          ssla: 25/300 BARANGAROO AV, BARANGAROO NSW 2000
+          mla:
+            - LEVEL 25
+            - TOWER 3
+            - 300 BARANGAROO AV
+            - BARANGAROO NSW 2000
+          structured:
+            buildingName: Tower 3
+            level:
+              type:
+                name: Level
+                code: L
+              number: 25
+            number:
+              number: 300
+            street:
+              name: Barangaroo
+              type:
+                name: Avenue
+                code: AV
+            locality:
+              name: Barangaroo
+              class:
+                code: G
+                name: GAZETTED LOCALITY
+            state:
+              name: New South Wales
+              abbreviation: NSW
+            postcode: '2000'
+            confidence: 2
+          geo:
+            level:
+              code: 7
+              name: LOCALITY, STREET, ADDRESS
+            geocodes:
+              - latitude: -33.85351875
+                longitude: 150.8947369
+                isDefault: true
+                reliability:
+                  code: 2
+                  name: WITHIN ADDRESS SITE BOUNDARY OR ACCESS POINT
+                type:
+                  code: 2
+                  name: PROPERTY CENTROID
+        links:
+          self: /addresses/GANT_718592778
+      links:
+        self: /addresses/GANT_718592778
+  
+  # ============================================================================
+  # Root Types
+  # ============================================================================
+  Root:
+    type: object
+    description: API root response (links provided in headers)

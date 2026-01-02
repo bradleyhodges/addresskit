@@ -17,7 +17,15 @@ import { CACHE_ENABLED } from "./config";
 import {
     type CachedSearchResult,
     CircuitOpenError,
+    ErrorDocuments,
+    buildAddressDetailDocument,
+    buildAddressResource,
+    buildAutocompleteDocument,
+    buildAutocompleteResource,
+    buildPaginationLinks,
+    buildPaginationMeta,
     clearAddresses,
+    extractAddressId,
     generateSearchCacheKey,
     getOpenSearchCircuit,
     getSearchCache,
@@ -345,13 +353,14 @@ const searchForAddress = async (
  * Retrieves detailed information about a specific address by its ID.
  *
  * This function queries OpenSearch for the address document, constructs the
- * response with proper HATEOAS links, and generates an ETag hash for caching.
- * Operations are protected by a circuit breaker to handle OpenSearch failures gracefully.
+ * response as a JSON:API document with proper links, and generates an ETag hash
+ * for caching. Operations are protected by a circuit breaker to handle OpenSearch
+ * failures gracefully.
  *
  * @param {string} addressId - The unique identifier for the address (G-NAF PID).
  * @returns {Promise<Types.GetAddressResponse>} A promise resolving to either:
- *   - Success: `{ link, json, hash }` containing the address data and navigation links
- *   - Error: `{ statusCode, json }` with appropriate HTTP status and error message
+ *   - Success: `{ link, json, hash }` containing the JSON:API document and navigation links
+ *   - Error: `{ statusCode, json }` with appropriate HTTP status and JSON:API error document
  */
 const getAddress = async (
     addressId: string,
@@ -371,16 +380,62 @@ const getAddress = async (
 
         logger("jsonX", jsonX);
 
-        // Extract and merge the structured address data with the SLA string
-        const json: Record<string, unknown> & { sla: string } = {
-            ...jsonX.body._source.structured,
-            sla: jsonX.body._source.sla,
+        // Extract the source data from OpenSearch response
+        const source = jsonX.body._source;
+
+        // Build the JSON:API address detail attributes
+        const attributes: Types.AddressDetailAttributes = {
+            pid: addressId,
+            sla: source.sla,
+            ...(source.ssla !== undefined && { ssla: source.ssla }),
+            ...(source.structured?.mla !== undefined && {
+                mla: source.structured.mla,
+            }),
+            ...(source.structured?.smla !== undefined && {
+                smla: source.structured.smla,
+            }),
+            structured: {
+                ...(source.structured?.buildingName !== undefined && {
+                    buildingName: source.structured.buildingName,
+                }),
+                ...(source.structured?.lotNumber !== undefined && {
+                    lotNumber: source.structured.lotNumber,
+                }),
+                ...(source.structured?.flat !== undefined && {
+                    flat: source.structured.flat,
+                }),
+                ...(source.structured?.level !== undefined && {
+                    level: source.structured.level,
+                }),
+                ...(source.structured?.number !== undefined && {
+                    number: source.structured.number,
+                }),
+                ...(source.structured?.street !== undefined && {
+                    street: source.structured.street,
+                }),
+                ...(source.structured?.locality !== undefined && {
+                    locality: source.structured.locality,
+                }),
+                ...(source.structured?.state !== undefined && {
+                    state: source.structured.state,
+                }),
+                ...(source.structured?.postcode !== undefined && {
+                    postcode: source.structured.postcode,
+                }),
+                ...(source.structured?.confidence !== undefined && {
+                    confidence: source.structured.confidence,
+                }),
+            },
+            ...(source.structured?.geo !== undefined && {
+                geo: source.structured.geo,
+            }),
         };
 
-        logger("json", json);
+        // Build the JSON:API resource and document
+        const resource = buildAddressResource(addressId, attributes);
+        const jsonApiDocument = buildAddressDetailDocument(resource);
 
-        // Remove internal OpenSearch ID field from response payload
-        delete json._id;
+        logger("jsonApiDocument", jsonApiDocument);
 
         // Construct HATEOAS self-link for the address resource
         const link = new LinkHeader();
@@ -391,22 +446,25 @@ const getAddress = async (
 
         // Use pre-computed hash from document if available, otherwise compute on-the-fly
         // Pre-computed hashes are stored during indexing for better performance
-        const precomputedHash = jsonX.body._source.documentHash;
+        const precomputedHash = source.documentHash;
         const hash =
             precomputedHash ??
-            crypto.createHash("md5").update(JSON.stringify(json)).digest("hex");
+            crypto
+                .createHash("md5")
+                .update(JSON.stringify(jsonApiDocument))
+                .digest("hex");
 
-        return { link, json, hash };
+        return { link, json: jsonApiDocument as Record<string, unknown>, hash };
     } catch (error_: unknown) {
         // Handle circuit breaker open state (503 - service temporarily unavailable)
         if (error_ instanceof CircuitOpenError) {
             error("Circuit breaker open for OpenSearch", error_);
+            const retryAfterSeconds = Math.ceil(error_.retryAfterMs / 1000);
             return {
                 statusCode: 503,
-                json: {
-                    error: "service temporarily unavailable",
-                    retryAfter: Math.ceil(error_.retryAfterMs / 1000),
-                },
+                json: ErrorDocuments.serviceUnavailable(
+                    retryAfterSeconds,
+                ) as Record<string, unknown>,
             };
         }
 
@@ -416,32 +474,48 @@ const getAddress = async (
 
         // Handle document not found (404)
         if (osError.body?.found === false) {
-            return { statusCode: 404, json: { error: "not found" } };
+            return {
+                statusCode: 404,
+                json: ErrorDocuments.notFound("address", addressId) as Record<
+                    string,
+                    unknown
+                >,
+            };
         }
 
         // Handle index not ready/available (503)
         if (osError.body?.error?.type === "index_not_found_exception") {
-            return { statusCode: 503, json: { error: "service unavailable" } };
+            return {
+                statusCode: 503,
+                json: ErrorDocuments.serviceUnavailable() as Record<
+                    string,
+                    unknown
+                >,
+            };
         }
 
         // Fallback for unexpected errors (500)
-        return { statusCode: 500, json: { error: "unexpected error" } };
+        return {
+            statusCode: 500,
+            json: ErrorDocuments.internalError() as Record<string, unknown>,
+        };
     }
 };
 
 /**
  * Searches for addresses matching a query string with pagination support.
  *
- * This function performs a fuzzy search against the address index, constructing
- * proper HATEOAS pagination links and API discovery templates in the response.
+ * This function performs a fuzzy search against the address index, returning
+ * minimal autocomplete suggestions in JSON:API format with proper pagination.
+ * The response is optimized for fast rendering of autocomplete dropdowns.
  *
  * @param {string} url - The base URL for the addresses endpoint (used for link construction).
  * @param {Types.SwaggerContext} swagger - Swagger/OpenAPI context for API documentation linkage.
  * @param {string} [q] - The search query string for address matching.
  * @param {number} [p=1] - The page number for pagination (1-indexed).
  * @returns {Promise<Types.GetAddressesResponse>} A promise resolving to either:
- *   - Success: `{ link, json, linkTemplate }` containing search results and navigation
- *   - Error: `{ statusCode, json }` with appropriate HTTP status and error message
+ *   - Success: `{ link, json, linkTemplate }` containing JSON:API autocomplete results
+ *   - Error: `{ statusCode, json }` with appropriate HTTP status and JSON:API error document
  */
 const getAddresses = async (
     url: string,
@@ -455,7 +529,10 @@ const getAddresses = async (
         if (normalizedQuery === "") {
             return {
                 statusCode: 400,
-                json: { error: "query parameter 'q' must not be empty" },
+                json: ErrorDocuments.badRequest(
+                    "The 'q' query parameter is required and must not be empty.",
+                    "q",
+                ) as Record<string, unknown>,
             };
         }
 
@@ -468,7 +545,45 @@ const getAddresses = async (
         } = await searchForAddress(normalizedQuery, p);
         logger("foundAddresses", foundAddresses);
 
-        // Initialize the Link header for HATEOAS navigation
+        // Calculate pagination values
+        const totalPages = Math.ceil(totalHits / size);
+
+        // Build JSON:API autocomplete resources from search hits
+        const resources = mapToJsonApiAutocompleteResponse(foundAddresses);
+
+        // Build JSON:API pagination links
+        const jsonApiLinks = buildPaginationLinks(
+            url,
+            normalizedQuery,
+            page,
+            totalPages,
+        );
+
+        // Add API documentation link
+        jsonApiLinks.describedby = {
+            href: `/docs/#operations-${swagger.path.get[
+                "x-swagger-router-controller"
+            ].toLowerCase()}-${swagger.path.get.operationId}`,
+            title: `${swagger.path.get.operationId} API Docs`,
+            type: "text/html",
+        };
+
+        // Build JSON:API pagination metadata
+        const meta = buildPaginationMeta(totalHits, page, size);
+
+        // Build the complete JSON:API document
+        const jsonApiDocument = buildAutocompleteDocument(
+            resources,
+            jsonApiLinks,
+            meta,
+        );
+
+        logger(
+            "jsonApiDocument",
+            JSON.stringify(jsonApiDocument, undefined, 2),
+        );
+
+        // Initialize the Link header for HATEOAS navigation (kept for backwards compatibility)
         const link = new LinkHeader();
 
         // Add link to API documentation for this operation
@@ -484,7 +599,7 @@ const getAddresses = async (
         // Build query string for the current request (self link)
         const sp = new URLSearchParams({
             ...(normalizedQuery !== "" && { q: normalizedQuery }),
-            ...(page !== 1 && { p: String(page) }),
+            ...(page !== 1 && { "page[number]": String(page) }),
         });
         const spString = sp.toString();
 
@@ -497,9 +612,11 @@ const getAddresses = async (
         // Add link to the first page of results
         link.set({
             rel: "first",
-            uri: `${url}${q === undefined ? "" : "?"}${new URLSearchParams({
-                ...(normalizedQuery !== "" && { q: normalizedQuery }),
-            }).toString()}`,
+            uri: `${url}${normalizedQuery === "" ? "" : "?"}${new URLSearchParams(
+                {
+                    ...(normalizedQuery !== "" && { q: normalizedQuery }),
+                },
+            ).toString()}`,
         });
 
         // Add previous page link if not on the first page
@@ -510,7 +627,7 @@ const getAddresses = async (
                     normalizedQuery === "" && page === 2 ? "" : "?"
                 }${new URLSearchParams({
                     ...(normalizedQuery !== "" && { q: normalizedQuery }),
-                    ...(page > 2 && { p: String(page - 1) }),
+                    ...(page > 2 && { "page[number]": String(page - 1) }),
                 }).toString()}`,
             });
         }
@@ -528,31 +645,45 @@ const getAddresses = async (
                 rel: "next",
                 uri: `${url}?${new URLSearchParams({
                     ...(normalizedQuery !== "" && { q: normalizedQuery }),
-                    p: String(page + 1),
+                    "page[number]": String(page + 1),
                 }).toString()}`,
             });
         }
 
-        // Transform OpenSearch hits into the API response format
-        const responseBody = mapToSearchAddressResponse(foundAddresses);
-        logger("responseBody", JSON.stringify(responseBody, undefined, 2));
+        // Add last page link
+        if (totalPages > 0) {
+            link.set({
+                rel: "last",
+                uri: `${url}?${new URLSearchParams({
+                    ...(normalizedQuery !== "" && { q: normalizedQuery }),
+                    ...(totalPages > 1 && {
+                        "page[number]": String(totalPages),
+                    }),
+                }).toString()}`,
+            });
+        }
 
         // Construct Link-Template header for API discoverability (RFC 6570)
         const linkTemplate = new LinkHeader();
         const op = swagger.path.get;
         setLinkOptions(op, url, linkTemplate);
 
-        return { link, json: responseBody, linkTemplate };
+        // Return JSON:API document instead of legacy format
+        return {
+            link,
+            json: jsonApiDocument as Record<string, unknown>,
+            linkTemplate,
+        };
     } catch (error_: unknown) {
         // Handle circuit breaker open state (503 - service temporarily unavailable)
         if (error_ instanceof CircuitOpenError) {
             error("Circuit breaker open for OpenSearch", error_);
+            const retryAfterSeconds = Math.ceil(error_.retryAfterMs / 1000);
             return {
                 statusCode: 503,
-                json: {
-                    error: "service temporarily unavailable",
-                    retryAfter: Math.ceil(error_.retryAfterMs / 1000),
-                },
+                json: ErrorDocuments.serviceUnavailable(
+                    retryAfterSeconds,
+                ) as Record<string, unknown>,
             };
         }
 
@@ -562,29 +693,86 @@ const getAddresses = async (
 
         // Handle index not ready/available (503)
         if (osError.body?.error?.type === "index_not_found_exception") {
-            return { statusCode: 503, json: { error: "service unavailable" } };
+            return {
+                statusCode: 503,
+                json: ErrorDocuments.serviceUnavailable() as Record<
+                    string,
+                    unknown
+                >,
+            };
         }
 
         // Handle OpenSearch request timeout (504)
         if (osError.displayName === "RequestTimeout") {
-            return { statusCode: 504, json: { error: "gateway timeout" } };
+            return {
+                statusCode: 504,
+                json: ErrorDocuments.gatewayTimeout() as Record<
+                    string,
+                    unknown
+                >,
+            };
         }
 
         // Fallback for unexpected errors (500)
-        return { statusCode: 500, json: { error: "unexpected error" } };
+        return {
+            statusCode: 500,
+            json: ErrorDocuments.internalError() as Record<string, unknown>,
+        };
     }
 };
 
 /**
- * Transforms raw OpenSearch search hits into the standardised API response format.
+ * Transforms raw OpenSearch search hits into JSON:API autocomplete resources.
  *
- * This function maps the internal OpenSearch document structure to a clean,
- * client-facing response containing the address SLA, relevance score, and
- * HATEOAS self-links for each result.
+ * This function maps the internal OpenSearch document structure to JSON:API
+ * resource objects optimized for autocomplete, containing only the essential
+ * display text (SLA), relevance rank, and self-link.
  *
  * @param {Types.OpensearchApiResponse<Types.OpensearchSearchResponse<unknown>, unknown>} foundAddresses -
  *   The raw OpenSearch search response containing hits.
- * @returns {Types.AddressSearchResult[]} An array of address results formatted for the API.
+ * @returns {Types.JsonApiResource<Types.AddressAutocompleteAttributes>[]} Array of JSON:API resources.
+ */
+const mapToJsonApiAutocompleteResponse = (
+    foundAddresses: Types.OpensearchApiResponse<
+        Types.OpensearchSearchResponse<unknown>,
+        unknown
+    >,
+): Types.JsonApiResource<Types.AddressAutocompleteAttributes>[] => {
+    // Get the maximum score for normalization (first result typically has highest score)
+    const maxScore = foundAddresses.body.hits.hits[0]
+        ? (foundAddresses.body.hits.hits[0] as Types.AddressSearchHit)._score
+        : 1;
+
+    // Map each hit to a JSON:API resource, normalizing scores to 0-1 range
+    return foundAddresses.body.hits.hits.map((h) => {
+        // Cast hit to the expected structure for type-safe access
+        const hit = h as Types.AddressSearchHit;
+
+        // Extract the address ID from the document path (remove /addresses/ prefix)
+        const addressId = extractAddressId(hit._id);
+
+        // Normalize score to 0-1 range relative to the best match
+        const normalizedRank = maxScore > 0 ? hit._score / maxScore : 0;
+
+        // Build and return the JSON:API autocomplete resource
+        return buildAutocompleteResource(
+            addressId,
+            hit._source.sla,
+            normalizedRank,
+            hit._source.ssla,
+        );
+    });
+};
+
+/**
+ * Transforms raw OpenSearch search hits into the legacy API response format.
+ *
+ * @deprecated Use mapToJsonApiAutocompleteResponse for JSON:API compliant responses.
+ * This function is retained for backwards compatibility during the transition period.
+ *
+ * @param {Types.OpensearchApiResponse<Types.OpensearchSearchResponse<unknown>, unknown>} foundAddresses -
+ *   The raw OpenSearch search response containing hits.
+ * @returns {Types.AddressSearchResult[]} An array of address results formatted for the legacy API.
  */
 const mapToSearchAddressResponse = (
     foundAddresses: Types.OpensearchApiResponse<
@@ -624,6 +812,7 @@ export {
     getAddress,
     getAddresses,
     mapToSearchAddressResponse,
+    mapToJsonApiAutocompleteResponse,
     setAddresses,
     searchForAddress,
 };
