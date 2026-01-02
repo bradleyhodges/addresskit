@@ -76,7 +76,8 @@
             "**/types/generated",
             "**/runtime.*",
             "**/*.min.*",
-            "**/metadata"
+            "**/metadata",
+            "**/tooling/scripts/release.js"
         ]
     }
 }

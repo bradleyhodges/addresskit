@@ -39,7 +39,7 @@ var version;
 var init_version = __esm({
   "packages/core/version.ts"() {
     "use strict";
-    version = "2.2.4";
+    version = "2.2.5";
   }
 });
 
@@ -39911,9 +39911,12 @@ var init_load = __esm({
             }
           });
           const downloadedStats = fs3.statSync(incompleteFile);
-          if (dataResource.size && downloadedStats.size !== dataResource.size) {
+          const expectedSize = dataResource.size;
+          const actualSize = downloadedStats.size;
+          const percentageDifference = Math.abs((actualSize - expectedSize) / expectedSize) * 100;
+          if (percentageDifference > 5) {
             throw new Error(
-              `Downloaded file size (${downloadedStats.size}) doesn't match expected (${dataResource.size})`
+              `Downloaded file size (${actualSize}) doesn't match expected (${expectedSize})`
             );
           }
           const downloadDuration = Date.now() - downloadStartTime;
