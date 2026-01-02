@@ -1871,8 +1871,15 @@ export const loadCommandEntry = async ({
 
         // Step 4: Find the G-NAF subdirectory within the extracted contents
         const locateSpinner = startSpinner("Locating G-NAF data directory...");
-        const gnafDir = await glob("**/G-NAF/", { cwd: unzipped });
-        if (VERBOSE) logger("gnafDir", gnafDir);
+        const gnafDirResults = await glob("**/G-NAF/", { cwd: unzipped });
+        if (VERBOSE) logger("gnafDir results", gnafDirResults);
+
+        // Filter out any undefined/null entries and get valid paths
+        const gnafDir = gnafDirResults.filter(
+            (dir: string | undefined): dir is string =>
+                typeof dir === "string" && dir.length > 0,
+        );
+        if (VERBOSE) logger("gnafDir filtered", gnafDir);
 
         // Verify the G-NAF directory was found
         if (gnafDir.length === 0) {
@@ -1881,12 +1888,23 @@ export const loadCommandEntry = async ({
                 `Cannot find 'G-NAF' directory in Data dir '${unzipped}'`,
             );
         }
+
+        // Get the first valid G-NAF directory path
+        const gnafDirPath = gnafDir[0];
+        if (!gnafDirPath) {
+            failSpinner("G-NAF directory path is invalid");
+            throw new Error(
+                `G-NAF directory path is undefined in Data dir '${unzipped}'`,
+            );
+        }
         succeedSpinner("G-NAF data directory located");
 
         // Get the parent directory of the G-NAF folder (this is the main data directory)
-        const mainDirectory = path.dirname(
-            `${unzipped}/${gnafDir[0].slice(0, -1)}`,
-        );
+        // Remove trailing slash if present before getting parent directory
+        const gnafDirNormalized = gnafDirPath.endsWith("/")
+            ? gnafDirPath.slice(0, -1)
+            : gnafDirPath;
+        const mainDirectory = path.dirname(`${unzipped}/${gnafDirNormalized}`);
         if (VERBOSE) logger("Main Data dir", mainDirectory);
 
         // Log resource state before the intensive loading phase
