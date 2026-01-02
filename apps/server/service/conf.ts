@@ -33,6 +33,17 @@ export {
     CORS_ALLOW_ORIGIN,
     CORS_EXPOSE_HEADERS,
     CORS_ALLOW_HEADERS,
+    // Caching configuration
+    CACHE_MAX_ENTRIES,
+    CACHE_TTL_MS,
+    CACHE_ENABLED,
+    // Circuit breaker configuration
+    CIRCUIT_FAILURE_THRESHOLD,
+    CIRCUIT_RESET_TIMEOUT_MS,
+    CIRCUIT_SUCCESS_THRESHOLD,
+    // Resource management configuration
+    DYNAMIC_RESOURCES_ENABLED,
+    TARGET_MEMORY_UTILIZATION,
 } from "./config";
 
 /**

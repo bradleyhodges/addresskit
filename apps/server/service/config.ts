@@ -233,3 +233,105 @@ export const CORS_EXPOSE_HEADERS =
  */
 export const CORS_ALLOW_HEADERS =
     process.env.ADDRESSKIT_ACCESS_CONTROL_ALLOW_HEADERS;
+
+// ---------------------------------------------------------------------------------
+// Caching Configuration
+// ---------------------------------------------------------------------------------
+
+/**
+ * Maximum number of entries in the search result cache.
+ * Higher values improve hit rate but consume more memory.
+ *
+ * @default 1000
+ * @env ADDRESSKIT_CACHE_MAX_ENTRIES
+ */
+export const CACHE_MAX_ENTRIES = Number.parseInt(
+    process.env.ADDRESSKIT_CACHE_MAX_ENTRIES ?? "1000",
+    10,
+);
+
+/**
+ * TTL (Time-To-Live) for search cache entries in milliseconds.
+ * Balance freshness with performance based on your data update frequency.
+ *
+ * @default 300000 (5 minutes)
+ * @env ADDRESSKIT_CACHE_TTL_MS
+ */
+export const CACHE_TTL_MS = Number.parseInt(
+    process.env.ADDRESSKIT_CACHE_TTL_MS ?? "300000",
+    10,
+);
+
+/**
+ * Whether to enable search result caching.
+ * Disable for development or when debugging cache issues.
+ *
+ * @default true
+ * @env ADDRESSKIT_CACHE_ENABLED
+ */
+export const CACHE_ENABLED = process.env.ADDRESSKIT_CACHE_ENABLED !== "false";
+
+// ---------------------------------------------------------------------------------
+// Circuit Breaker Configuration
+// ---------------------------------------------------------------------------------
+
+/**
+ * Number of consecutive failures before the circuit opens.
+ * Lower values provide faster failure detection but may trigger on transient issues.
+ *
+ * @default 5
+ * @env ADDRESSKIT_CIRCUIT_FAILURE_THRESHOLD
+ */
+export const CIRCUIT_FAILURE_THRESHOLD = Number.parseInt(
+    process.env.ADDRESSKIT_CIRCUIT_FAILURE_THRESHOLD ?? "5",
+    10,
+);
+
+/**
+ * Time in milliseconds before the circuit attempts to close after opening.
+ * Gives the downstream service time to recover.
+ *
+ * @default 30000 (30 seconds)
+ * @env ADDRESSKIT_CIRCUIT_RESET_TIMEOUT_MS
+ */
+export const CIRCUIT_RESET_TIMEOUT_MS = Number.parseInt(
+    process.env.ADDRESSKIT_CIRCUIT_RESET_TIMEOUT_MS ?? "30000",
+    10,
+);
+
+/**
+ * Number of successful requests required to close the circuit from half-open.
+ * Ensures service is reliably recovered before resuming normal traffic.
+ *
+ * @default 3
+ * @env ADDRESSKIT_CIRCUIT_SUCCESS_THRESHOLD
+ */
+export const CIRCUIT_SUCCESS_THRESHOLD = Number.parseInt(
+    process.env.ADDRESSKIT_CIRCUIT_SUCCESS_THRESHOLD ?? "3",
+    10,
+);
+
+// ---------------------------------------------------------------------------------
+// Resource Management Configuration
+// ---------------------------------------------------------------------------------
+
+/**
+ * Whether to enable dynamic resource-aware configuration.
+ * When enabled, chunk sizes are calculated based on available system memory.
+ *
+ * @default true
+ * @env ADDRESSKIT_DYNAMIC_RESOURCES
+ */
+export const DYNAMIC_RESOURCES_ENABLED =
+    process.env.ADDRESSKIT_DYNAMIC_RESOURCES !== "false";
+
+/**
+ * Target memory utilization for resource calculations (0-1).
+ * Lower values leave more headroom for other processes.
+ *
+ * @default 0.7 (70%)
+ * @env ADDRESSKIT_TARGET_MEMORY_UTILIZATION
+ */
+export const TARGET_MEMORY_UTILIZATION = Number.parseFloat(
+    process.env.ADDRESSKIT_TARGET_MEMORY_UTILIZATION ?? "0.7",
+);
