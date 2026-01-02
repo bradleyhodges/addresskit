@@ -11,6 +11,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resetSearchCache = exports.generateSearchCacheKey = exports.getSearchCache = exports.LRUCache = void 0;
 const debug_1 = require("debug");
+const config_1 = require("../config");
 // ---------------------------------------------------------------------------------
 // Debug Loggers
 // ---------------------------------------------------------------------------------
@@ -100,7 +101,8 @@ class LRUCache {
         // Cache miss - entry not found
         if (entry === undefined) {
             this.stats.misses++;
-            logger(`Cache MISS: "${key.substring(0, 50)}..."`);
+            if (config_1.VERBOSE)
+                logger(`Cache MISS: "${key.substring(0, 50)}..."`);
             return undefined;
         }
         // Check if entry has expired
@@ -110,7 +112,8 @@ class LRUCache {
             this.cache.delete(key);
             this.stats.ttlEvictions++;
             this.stats.misses++;
-            logger(`Cache EXPIRED: "${key.substring(0, 50)}..."`);
+            if (config_1.VERBOSE)
+                logger(`Cache EXPIRED: "${key.substring(0, 50)}..."`);
             return undefined;
         }
         // Cache hit - update access metadata
@@ -177,7 +180,8 @@ class LRUCache {
     delete(key) {
         const deleted = this.cache.delete(key);
         if (deleted) {
-            logger(`Cache DELETE: "${key.substring(0, 50)}..."`);
+            if (config_1.VERBOSE)
+                logger(`Cache DELETE: "${key.substring(0, 50)}..."`);
         }
         return deleted;
     }
@@ -187,7 +191,8 @@ class LRUCache {
     clear() {
         const size = this.cache.size;
         this.cache.clear();
-        logger(`Cache CLEAR: removed ${size} entries`);
+        if (config_1.VERBOSE)
+            logger(`Cache CLEAR: removed ${size} entries`);
     }
     /**
      * Gets current cache statistics.
@@ -217,7 +222,8 @@ class LRUCache {
             ttlEvictions: 0,
             lruEvictions: 0,
         };
-        logger("Cache stats reset");
+        if (config_1.VERBOSE)
+            logger("Cache stats reset");
     }
     /**
      * Evicts the least recently used entry from the cache.
@@ -250,7 +256,8 @@ class LRUCache {
             }
         }
         if (evicted > 0) {
-            logger(`Cache maintenance: evicted ${evicted} expired entries`);
+            if (config_1.VERBOSE)
+                logger(`Cache maintenance: evicted ${evicted} expired entries`);
         }
     }
     /**
@@ -272,7 +279,8 @@ class LRUCache {
             this.maintenanceInterval = undefined;
         }
         this.cache.clear();
-        logger("LRU cache destroyed");
+        if (config_1.VERBOSE)
+            logger("LRU cache destroyed");
     }
 }
 exports.LRUCache = LRUCache;

@@ -16,6 +16,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resetOpenSearchCircuit = exports.getOpenSearchCircuit = exports.CircuitBreaker = exports.CircuitOpenError = void 0;
 const debug_1 = require("debug");
+const config_1 = require("../config");
 // ---------------------------------------------------------------------------------
 // Debug Loggers
 // ---------------------------------------------------------------------------------
@@ -371,7 +372,8 @@ class CircuitBreaker {
             this.resetTimeout = undefined;
         }
         this.operationHistory = [];
-        logger(`Circuit '${this.config.name}' destroyed`);
+        if (config_1.VERBOSE)
+            logger(`Circuit '${this.config.name}' destroyed`);
     }
 }
 exports.CircuitBreaker = CircuitBreaker;

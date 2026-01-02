@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const elasticsearch_1 = require("@repo/addresskit-client/elasticsearch");
 const debug_1 = require("debug");
+const config_1 = require("../service/config");
 const printVersion_1 = require("../service/printVersion");
 const waycharterServer_1 = require("./waycharterServer");
 const logger = (0, debug_1.default)("api");
@@ -16,7 +17,8 @@ async function connectElasticSearchClient() {
     const esClient = await (0, elasticsearch_1.esConnect)();
     // Set the Elasticsearch client on the global namespace
     global.esClient = esClient;
-    logger("es client connected");
+    if (config_1.VERBOSE)
+        logger("es client connected");
 }
 /**
  * Boots the REST server, establishes shared dependencies, and prints build metadata.
@@ -26,10 +28,12 @@ async function connectElasticSearchClient() {
  */
 async function bootstrapServer() {
     // Start the REST server
-    logger("starting REST server");
+    if (config_1.VERBOSE)
+        logger("starting REST server");
     await (0, waycharterServer_1.startRest2Server)();
     // Connect to Elasticsearch
-    logger("connecting es client");
+    if (config_1.VERBOSE)
+        logger("connecting es client");
     await connectElasticSearchClient();
     // Print the version and environment
     console.log("=======================");

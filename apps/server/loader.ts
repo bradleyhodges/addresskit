@@ -1,6 +1,7 @@
 import { esConnect } from "@repo/addresskit-client/elasticsearch";
 import debug from "debug";
 import service from "./service";
+import { VERBOSE } from "./service/config";
 import { printVersion } from "./service/printVersion";
 
 /**

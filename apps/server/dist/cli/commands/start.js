@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runStartCommand = runStartCommand;
 const elasticsearch_1 = require("@repo/addresskit-client/elasticsearch");
 const debug_1 = require("debug");
+const config_1 = require("../../service/config");
 const terminalUI_1 = require("../../service/helpers/terminalUI");
 const waycharterServer_1 = require("../../src/waycharterServer");
 /** Debug logger for API operations */
@@ -52,7 +53,8 @@ async function runStartCommand(options) {
     }
     const serverSpinner = (0, terminalUI_1.startSpinner)("Starting REST API server...");
     try {
-        logger("starting REST server");
+        if (config_1.VERBOSE)
+            logger("starting REST server");
         await (0, waycharterServer_1.startRest2Server)();
         (0, terminalUI_1.succeedSpinner)(`REST API server started on port ${terminalUI_1.theme.highlight(port)}`);
     }
@@ -64,11 +66,13 @@ async function runStartCommand(options) {
     // Connect to OpenSearch
     const esSpinner = (0, terminalUI_1.startSpinner)("Connecting to OpenSearch...");
     try {
-        logger("connecting es client");
+        if (config_1.VERBOSE)
+            logger("connecting es client");
         const esClient = await (0, elasticsearch_1.esConnect)();
         global.esClient = esClient;
         (0, terminalUI_1.succeedSpinner)("Connected to OpenSearch");
-        logger("es client connected");
+        if (config_1.VERBOSE)
+            logger("es client connected");
     }
     catch (err) {
         (0, terminalUI_1.failSpinner)("Failed to connect to OpenSearch");

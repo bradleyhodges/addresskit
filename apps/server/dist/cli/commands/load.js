@@ -10,6 +10,7 @@ exports.runLoadCommand = runLoadCommand;
 const elasticsearch_1 = require("@repo/addresskit-client/elasticsearch");
 const debug_1 = require("debug");
 const service_1 = require("../../service");
+const config_1 = require("../../service/config");
 const terminalUI_1 = require("../../service/helpers/terminalUI");
 /** Debug logger for API operations */
 const logger = (0, debug_1.default)("api");
@@ -51,7 +52,8 @@ async function runLoadCommand(options) {
     try {
         await (0, elasticsearch_1.esConnect)();
         (0, terminalUI_1.succeedSpinner)("Connected to OpenSearch");
-        logger("es client connected");
+        if (config_1.VERBOSE)
+            logger("es client connected");
     }
     catch (err) {
         (0, terminalUI_1.failSpinner)("Failed to connect to OpenSearch");
@@ -97,7 +99,8 @@ async function runLoadCommand(options) {
         // Restore console.log
         console.log = originalLog;
         (0, terminalUI_1.succeedSpinner)("G-NAF data loaded successfully");
-        logger("data loaded");
+        if (config_1.VERBOSE)
+            logger("data loaded");
         // Display completion summary
         const duration = Date.now() - startTime;
         if (!isDaemon) {

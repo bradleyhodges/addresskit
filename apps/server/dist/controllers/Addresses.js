@@ -5,6 +5,8 @@ exports.getAddresses = getAddresses;
 const addresskit_core_1 = require("@repo/addresskit-core");
 const debug_1 = require("debug");
 const service_1 = require("../service");
+const config_1 = require("../service/config");
+const jsonapi_1 = require("../service/helpers/jsonapi");
 /**
  * The logger for the API address controller.
  */
@@ -14,7 +16,7 @@ const logger = (0, debug_1.default)("api:addresses");
  */
 const errorLogger = (0, debug_1.default)("error:addresses");
 /**
- * Writes a standardized error response to the client.
+ * Writes a standardized JSON:API error response to the client.
  * Used for consistent error handling across all address endpoints.
  *
  * @param response - Express response object.
@@ -25,12 +27,21 @@ const errorLogger = (0, debug_1.default)("error:addresses");
 const writeErrorResponse = (response, statusCode, message, errorDetails) => {
     // Log the error details for debugging (not exposed to client)
     if (errorDetails !== undefined) {
-        errorLogger(`Error [${statusCode}]: ${message}`, errorDetails);
+        if (config_1.VERBOSE)
+            errorLogger(`Error [${statusCode}]: ${message}`, errorDetails);
     }
-    // Set response headers and send error payload
-    response.setHeader("Content-Type", "application/json");
+    // Set response headers and send JSON:API error payload
+    response.setHeader("Content-Type", jsonapi_1.JSONAPI_CONTENT_TYPE);
     response.status(statusCode);
-    response.json({ error: message });
+    response.json({
+        jsonapi: { version: "1.1" },
+        errors: [
+            {
+                status: String(statusCode),
+                title: message,
+            },
+        ],
+    });
 };
 /**
  * Fetches a single address by its unique G-NAF PID.
@@ -44,7 +55,8 @@ const writeErrorResponse = (response, statusCode, message, errorDetails) => {
  */
 function getAddress(request, response) {
     // Log the incoming request for debugging
-    logger("IN getAddress");
+    if (config_1.VERBOSE)
+        logger("IN getAddress");
     // Extract the address ID from the validated Swagger parameters
     const addressId = request.swagger.params.addressId?.value;
     // Guard against missing address ID (should not occur with proper Swagger validation)
@@ -56,10 +68,10 @@ function getAddress(request, response) {
     const addressPromise = (0, service_1.getAddress)(addressId);
     addressPromise
         .then((addressResponse) => {
-        // Handle error responses from the service layer
+        // Handle error responses from the service layer (JSON:API error documents)
         if (addressResponse.statusCode !== undefined) {
-            // Set content type and return the error response
-            response.setHeader("Content-Type", "application/json");
+            // Set JSON:API content type and return the error response
+            response.setHeader("Content-Type", jsonapi_1.JSONAPI_CONTENT_TYPE);
             response.status(addressResponse.statusCode);
             response.json(addressResponse.json);
             return;
@@ -68,7 +80,8 @@ function getAddress(request, response) {
         if (addressResponse.link !== undefined) {
             response.setHeader("link", addressResponse.link.toString());
         }
-        // Write the address data as JSON
+        // Set JSON:API content type and write the address data
+        response.setHeader("Content-Type", jsonapi_1.JSONAPI_CONTENT_TYPE);
         (0, addresskit_core_1.writeJson)(response, addressResponse.json);
     })
         .catch((error) => {
@@ -97,9 +110,9 @@ function getAddresses(request, response) {
     const addressesPromise = (0, service_1.getAddresses)(url.pathname, request.swagger, q, p);
     addressesPromise
         .then((addressesResponse) => {
-        // Handle error responses from the service layer
+        // Handle error responses from the service layer (JSON:API error documents)
         if (addressesResponse.statusCode !== undefined) {
-            response.setHeader("Content-Type", "application/json");
+            response.setHeader("Content-Type", jsonapi_1.JSONAPI_CONTENT_TYPE);
             response.status(addressesResponse.statusCode);
             response.json(addressesResponse.json);
             return;
@@ -112,7 +125,8 @@ function getAddresses(request, response) {
         if (addressesResponse.linkTemplate !== undefined) {
             response.setHeader("link-template", addressesResponse.linkTemplate.toString());
         }
-        // Write the search results as JSON
+        // Set JSON:API content type and write the search results
+        response.setHeader("Content-Type", jsonapi_1.JSONAPI_CONTENT_TYPE);
         (0, addresskit_core_1.writeJson)(response, addressesResponse.json);
     })
         .catch((error) => {

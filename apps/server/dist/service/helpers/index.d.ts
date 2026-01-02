@@ -9,5 +9,6 @@ export * from "./resourceMonitor";
 export * from "./searchCache";
 export * from "./circuitBreaker";
 export * from "./terminalUI";
+export * from "./jsonapi";
 export { clearAuthorityCodeMaps } from "./propertyCodeToName";
 //# sourceMappingURL=index.d.ts.map

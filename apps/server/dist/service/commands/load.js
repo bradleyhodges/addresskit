@@ -29,7 +29,8 @@ const fetchGNAFPackageData = async () => {
     const packageUrl = conf_1.GNAF_PACKAGE_URL;
     // See if we have the value in cache
     const cachedResponse = await index_1.cache.get(packageUrl);
-    (0, index_1.logger)("cached gnaf package data", cachedResponse);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("cached gnaf package data", cachedResponse);
     // Get the age of the cached response
     let age = 0;
     if (cachedResponse !== undefined) {
@@ -39,7 +40,8 @@ const fetchGNAFPackageData = async () => {
         const created = cachedResponse.cachedAt !== undefined
             ? new Date(cachedResponse.cachedAt)
             : new Date(cachedResponse.headers.date);
-        (0, index_1.logger)("created", created);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("created", created);
         // Calculate the age of the cached response
         age = Date.now() - created.getTime();
         // If the age is less than or equal to one day, return the cached response
@@ -51,11 +53,13 @@ const fetchGNAFPackageData = async () => {
     try {
         // Fetch the GNAF package data
         const response = await index_1.gotClient.get(packageUrl);
-        (0, index_1.logger)("response.isFromCache", response.fromCache);
-        (0, index_1.logger)("fresh gnaf package data", {
-            body: response.body,
-            headers: response.headers,
-        });
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("response.isFromCache", response.fromCache);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("fresh gnaf package data", {
+                body: response.body,
+                headers: response.headers,
+            });
         // Set the cache response
         await index_1.cache.set(packageUrl, {
             body: response.body,
@@ -99,12 +103,16 @@ const fetchGNAFArchive = async () => {
     // Find the data resource for the GNAF file
     const dataResource = pack.result.resources.find((r) => r.state === "active" && r.mimetype === "application/zip");
     // Log the data resource (id as of 16/07/2019 for zip is 4b084096-65e4-4c8e-abbe-5e54ff85f42f)
-    (0, index_1.logger)("dataResource", JSON.stringify(dataResource, undefined, 2));
-    (0, index_1.logger)("url", dataResource.url);
-    (0, index_1.logger)("headers", JSON.stringify(response.headers, undefined, 2));
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("dataResource", JSON.stringify(dataResource, undefined, 2));
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("url", dataResource.url);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("headers", JSON.stringify(response.headers, undefined, 2));
     // Get the basename of the GNAF file
     const basename = path.basename(dataResource.url);
-    (0, index_1.logger)("basename", basename);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("basename", basename);
     // Get the complete and incomplete paths for the GNAF file
     const complete_path = conf_1.GNAF_DIR;
     const incomplete_path = `${complete_path}/incomplete`;
@@ -149,17 +157,39 @@ const fetchGNAFArchive = async () => {
     }
     catch {
         // The destination file does not exist, so we need to download it.
-        (0, index_1.logger)("Starting G-NAF download");
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("Starting G-NAF download");
+        // Start a spinner for the download
+        const downloadSpinner = (0, helpers_1.startSpinner)("Downloading G-NAF data file...");
+        const downloadStartTime = Date.now();
         try {
-            // Download the GNAF file
-            await (0, stream_down_1.default)(dataResource.url, `${incomplete_path}/${basename}`, dataResource.size);
+            // Download the GNAF file with progress callback
+            await (0, stream_down_1.default)(dataResource.url, `${incomplete_path}/${basename}`, dataResource.size, (progress) => {
+                // Build progress display with the terminalUI progress bar
+                const progressBar = (0, helpers_1.createProgressBar)(progress.bytesDownloaded, progress.totalBytes, 25);
+                // Format speed and ETA
+                const speed = (0, helpers_1.formatBytes)(progress.bytesPerSecond);
+                const downloaded = (0, helpers_1.formatBytes)(progress.bytesDownloaded);
+                const total = (0, helpers_1.formatBytes)(progress.totalBytes);
+                const eta = progress.etaSeconds > 0
+                    ? (0, helpers_1.formatDuration)(progress.etaSeconds * 1000)
+                    : "calculating...";
+                // Update spinner text with beautiful progress info
+                (0, helpers_1.updateSpinner)(`Downloading G-NAF  ${progressBar}  ${helpers_1.theme.muted(`${downloaded} / ${total}`)}  ${helpers_1.theme.secondary(`${speed}/s`)}  ${helpers_1.theme.dim(`ETA: ${eta}`)}`);
+            });
+            // Calculate download duration
+            const downloadDuration = Date.now() - downloadStartTime;
+            (0, helpers_1.succeedSpinner)(`Downloaded G-NAF data file (${(0, helpers_1.formatBytes)(dataResource.size)} in ${(0, helpers_1.formatDuration)(downloadDuration)})`);
             // Rename the GNAF file
             await index_1.fsp.rename(`${incomplete_path}/${basename}`, destination);
-            (0, index_1.logger)("Finished downloading G-NAF", destination);
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("Finished downloading G-NAF", destination);
             // Return the destination path
             return destination;
         }
         catch (error_) {
+            // Fail the spinner
+            (0, helpers_1.failSpinner)("Failed to download G-NAF data file");
             // Log the error
             (0, index_1.error)("Error downloading G-NAF", error_);
             // Throw the error
@@ -188,7 +218,8 @@ const unzipGNAFArchive = async (file) => {
     const exists = await directoryExists(complete_path);
     // If the complete path exists, skip the extraction
     if (exists) {
-        (0, index_1.logger)("directory exits. Skipping extract", complete_path);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("directory exits. Skipping extract", complete_path);
         return complete_path;
     }
     // Create the incomplete path
@@ -204,7 +235,8 @@ const unzipGNAFArchive = async (file) => {
     });
     // Create a read stream from the GNAF archive file
     const readStream = fs.createReadStream(file);
-    (0, index_1.logger)("before pipe");
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("before pipe");
     // Create a promise to extract the GNAF archive file
     const prom = new Promise((resolve, reject) => {
         readStream
@@ -270,7 +302,8 @@ const unzipGNAFArchive = async (file) => {
                                 else {
                                     // The size of the entry is different from the size of the file, so we need to extract
                                     // the file. Pipe the entry to the write stream
-                                    (0, index_1.logger)("extracting", entryPath);
+                                    if (config_1.VERBOSE)
+                                        (0, index_1.logger)("extracting", entryPath);
                                     entry
                                         .pipe(fs.createWriteStream(entryPath))
                                         // On finish, log the message and call the callback
@@ -292,12 +325,14 @@ const unzipGNAFArchive = async (file) => {
         }))
             // On finish, log the message and call the callback
             .on("finish", () => {
-            (0, index_1.logger)("finish");
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("finish");
             resolve();
         })
             // On error, log the message and call the callback
             .on("error", (error_) => {
-            (0, index_1.logger)("error unzipping data file", error_);
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("error unzipping data file", error_);
             reject(error_);
         });
     });
@@ -412,7 +447,8 @@ const loadGNAFAddress = async (file, expectedCount, context, { refresh = false }
         (0, index_1.error)(`Error loading '${file}'. Expected '${expectedCount}' rows, got '${actualCount}'`);
     }
     else {
-        (0, index_1.logger)(`loaded '${actualCount}' rows from '${file}'`);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)(`loaded '${actualCount}' rows from '${file}'`);
     }
 };
 /**
@@ -606,7 +642,8 @@ const sendIndexRequest = async (indexingBody, initialBackoff = conf_1.INDEX_BACK
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         // Check for memory pressure before attempting indexing
         if (config_1.DYNAMIC_RESOURCES_ENABLED && (0, helpers_1.isMemoryPressure)()) {
-            (0, index_1.logger)("Memory pressure detected before indexing, waiting...");
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("Memory pressure detected before indexing, waiting...");
             await (0, helpers_1.waitForMemory)(1000, 10000);
         }
         try {
@@ -630,7 +667,8 @@ const sendIndexRequest = async (indexingBody, initialBackoff = conf_1.INDEX_BACK
                 throw resp;
             }
             // Success - all documents indexed
-            (0, index_1.logger)(`Successfully indexed ${documentCount} documents`);
+            if (config_1.VERBOSE)
+                (0, index_1.logger)(`Successfully indexed ${documentCount} documents`);
             return;
         }
         catch (error_) {
@@ -730,7 +768,8 @@ const initGNAFDataLoader = async (directory, { refresh = false } = {}) => {
         // Load the file counts from the CSV
         filesCounts = await (0, fs_1.loadFileCounts)(countsFile);
         files = Object.keys(filesCounts);
-        (0, index_1.logger)("files", files);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("files", files);
     }
     else {
         // May 2021 onwards: Counts.csv was removed, so we need to count lines manually
@@ -752,7 +791,8 @@ const initGNAFDataLoader = async (directory, { refresh = false } = {}) => {
     await (0, elasticsearch_1.initIndex)(global.esClient, conf_1.ES_CLEAR_INDEX, synonyms);
     // Find all ADDRESS_DETAIL files in the Standard directory for each state
     const addressDetailFiles = files.filter((f) => f.match(/ADDRESS_DETAIL/) && f.match(/\/Standard\//));
-    (0, index_1.logger)("addressDetailFiles", addressDetailFiles);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("addressDetailFiles", addressDetailFiles);
     // Determine which states to process
     const statesToProcess = [];
     for (const detailFile of addressDetailFiles) {
@@ -784,7 +824,8 @@ const initGNAFDataLoader = async (directory, { refresh = false } = {}) => {
             loadContext.stateName = await loadStateData(files, directory, state);
             // Load street locality data and index by STREET_LOCALITY_PID
             (0, helpers_1.updateSpinner)(`${stateProgress} ${(0, helpers_1.formatState)(state)}: Loading streets...`);
-            (0, index_1.logger)("Loading streets", state);
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("Loading streets", state);
             const streetLocality = await loadStreetLocality(files, directory, state);
             loadContext.streetLocalityIndexed = {};
             for (const sl of streetLocality) {
@@ -792,7 +833,8 @@ const initGNAFDataLoader = async (directory, { refresh = false } = {}) => {
             }
             // Load locality (suburb) data and index by LOCALITY_PID
             (0, helpers_1.updateSpinner)(`${stateProgress} ${(0, helpers_1.formatState)(state)}: Loading localities...`);
-            (0, index_1.logger)("Loading suburbs", state);
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("Loading suburbs", state);
             const locality = await loadLocality(files, directory, state);
             loadContext.localityIndexed = {};
             for (const l of locality) {
@@ -938,7 +980,8 @@ const loadLocality = async (files, directory, state) => {
  * @throws {Error} If the file cannot be parsed
  */
 const loadSiteGeo = async (files, directory, state, loadContext, filesCounts) => {
-    (0, index_1.logger)("Loading site geos");
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("Loading site geos");
     // Find the site geocode file matching the pattern
     const geoFile = files.find((f) => f.match(new RegExp(`${state}_ADDRESS_SITE_GEOCODE_psv`)));
     // Log error and return if file not found
@@ -1019,7 +1062,8 @@ const loadSiteGeo = async (files, directory, state, loadContext, filesCounts) =>
  * @throws {Error} If the file cannot be parsed
  */
 const loadDefaultGeo = async (files, directory, state, loadContext, filesCounts) => {
-    (0, index_1.logger)("Loading default geos");
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("Loading default geos");
     // Find the default geocode file matching the pattern
     const geoFile = files.find((f) => f.match(new RegExp(`${state}_ADDRESS_DEFAULT_GEOCODE_psv`)));
     // Log error and return if file not found
@@ -1104,7 +1148,8 @@ const loadDefaultGeo = async (files, directory, state, loadContext, filesCounts)
 const loadAuthFiles = async (files, directory, loadContext, filesCounts) => {
     // Find all authority code files (files containing "Authority Code" in path)
     const authCodeFiles = files.filter((f) => f.match(/Authority Code/));
-    (0, index_1.logger)("authCodeFiles", authCodeFiles);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("authCodeFiles", authCodeFiles);
     // Process each authority code file
     for (const authFile of authCodeFiles) {
         // Extract the context key from the filename (e.g., "Authority_Code_STREET_TYPE_AUT_psv")
@@ -1145,7 +1190,8 @@ const loadAuthFiles = async (files, directory, loadContext, filesCounts) => {
         });
     }
     // Log the complete load context for debugging
-    (0, index_1.logger)("AUTH", loadContext);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("AUTH", loadContext);
 };
 /**
  * Main entry point for loading G-NAF data into the address search index.
@@ -1214,10 +1260,12 @@ const loadCommandEntry = async ({ refresh = false, } = {}) => {
             throw err;
         }
         // Log the extracted directory path
-        (0, index_1.logger)("Data dir", unzipped);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("Data dir", unzipped);
         // Step 3: Read the contents of the extracted directory
         const contents = await index_1.fsp.readdir(unzipped);
-        (0, index_1.logger)("Data dir contents", contents);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("Data dir contents", contents);
         // Verify the directory is not empty
         if (contents.length === 0) {
             throw new Error(`Data dir '${unzipped}' is empty`);
@@ -1225,7 +1273,8 @@ const loadCommandEntry = async ({ refresh = false, } = {}) => {
         // Step 4: Find the G-NAF subdirectory within the extracted contents
         const locateSpinner = (0, helpers_1.startSpinner)("Locating G-NAF data directory...");
         const gnafDir = await glob("**/G-NAF/", { cwd: unzipped });
-        (0, index_1.logger)("gnafDir", gnafDir);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("gnafDir", gnafDir);
         // Verify the G-NAF directory was found
         if (gnafDir.length === 0) {
             (0, helpers_1.failSpinner)("G-NAF directory not found");
@@ -1234,10 +1283,12 @@ const loadCommandEntry = async ({ refresh = false, } = {}) => {
         (0, helpers_1.succeedSpinner)("G-NAF data directory located");
         // Get the parent directory of the G-NAF folder (this is the main data directory)
         const mainDirectory = path.dirname(`${unzipped}/${gnafDir[0].slice(0, -1)}`);
-        (0, index_1.logger)("Main Data dir", mainDirectory);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("Main Data dir", mainDirectory);
         // Log resource state before the intensive loading phase
         if (resourceMonitor) {
-            (0, index_1.logger)("Starting data loading phase");
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("Starting data loading phase");
             resourceMonitor.logResourceReport();
         }
         // Step 5: Load all G-NAF data from the main directory
@@ -1252,7 +1303,8 @@ const loadCommandEntry = async ({ refresh = false, } = {}) => {
         }
         // Log final resource state after loading completes
         if (resourceMonitor) {
-            (0, index_1.logger)("Data loading complete");
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("Data loading complete");
             resourceMonitor.logResourceReport();
         }
     }

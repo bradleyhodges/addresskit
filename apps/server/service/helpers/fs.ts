@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Papa from "papaparse";
-import { error, fsp, logger, readdir } from "../index";
 import { VERBOSE } from "../config";
+import { error, fsp, logger, readdir } from "../index";
 
 /**
  * Gets the files from the given directory.

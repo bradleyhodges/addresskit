@@ -3,6 +3,13 @@ import { Client } from "@opensearch-project/opensearch";
  * Configuration values for the Elasticsearch server
  */
 export declare const ELASTIC_PORT: number;
+/**
+ * Whether to enable verbose logging.
+ *
+ * @default false
+ * @env VERBOSE
+ */
+export declare const VERBOSE: boolean;
 declare global {
     var esClient: Client;
 }

@@ -46,27 +46,25 @@ export type AddressSearchResult = {
 };
 /**
  * Successful response from the getAddress function containing the address details.
+ * Now returns a JSON:API document structure.
  */
 export type GetAddressSuccessResponse = {
     /** HTTP Link header for HATEOAS navigation */
     link: LinkHeader;
-    /** Address data including structured components and SLA */
-    json: Record<string, unknown> & {
-        sla: string;
-    };
+    /** JSON:API document containing address data */
+    json: Record<string, unknown>;
     /** MD5 hash of the address data for ETag support */
     hash: string;
 };
 /**
  * Error response from the getAddress function.
+ * Now returns a JSON:API error document structure.
  */
 export type GetAddressErrorResponse = {
     /** HTTP status code for the error */
     statusCode: number;
-    /** Error details */
-    json: {
-        error: string;
-    };
+    /** JSON:API error document */
+    json: Record<string, unknown>;
 };
 /**
  * Union type for all possible getAddress responses.
@@ -74,26 +72,25 @@ export type GetAddressErrorResponse = {
 export type GetAddressResponse = GetAddressSuccessResponse | GetAddressErrorResponse;
 /**
  * Successful response from the getAddresses function containing the search results.
+ * Now returns a JSON:API document with autocomplete suggestions.
  */
 export type GetAddressesSuccessResponse = {
     /** HTTP Link header for HATEOAS navigation and pagination */
     link: LinkHeader;
-    /** Array of matching address results */
-    json: AddressSearchResult[];
+    /** JSON:API document containing autocomplete results */
+    json: Record<string, unknown>;
     /** HTTP Link-Template header for discoverable API templates */
     linkTemplate: LinkHeader;
 };
 /**
  * Error response from the getAddresses function.
+ * Now returns a JSON:API error document structure.
  */
 export type GetAddressesErrorResponse = {
     /** HTTP status code for the error */
     statusCode: number;
-    /** Error details with optional retry hint for circuit breaker scenarios */
-    json: {
-        error: string;
-        retryAfter?: number;
-    };
+    /** JSON:API error document */
+    json: Record<string, unknown>;
 };
 /**
  * Union type for all possible getAddresses responses.

@@ -226,4 +226,11 @@ export declare const DYNAMIC_RESOURCES_ENABLED: boolean;
  * @env ADDRESSKIT_TARGET_MEMORY_UTILIZATION
  */
 export declare const TARGET_MEMORY_UTILIZATION: number;
+/**
+ * Whether to enable verbose logging.
+ *
+ * @default false
+ * @env VERBOSE
+ */
+export declare const VERBOSE: boolean;
 //# sourceMappingURL=config.d.ts.map

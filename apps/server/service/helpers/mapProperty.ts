@@ -1,3 +1,4 @@
+import { VERBOSE } from "../config";
 import { logger } from "../index";
 import {
     AddressDetailRow,
@@ -28,7 +29,6 @@ import {
     streetSuffixCodeToName,
     streetTypeCodeToName,
 } from "./propertyCodeToName";
-import { VERBOSE } from "../config";
 
 /**
  * Maps a locality object to a structured locality object.

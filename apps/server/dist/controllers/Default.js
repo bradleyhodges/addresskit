@@ -4,6 +4,7 @@ exports.getApiRoot = getApiRoot;
 const addresskit_core_1 = require("@repo/addresskit-core");
 const debug_1 = require("debug");
 const DefaultService_1 = require("../service/DefaultService");
+const config_1 = require("../service/config");
 /**
  * The logger for error handling.
  */
@@ -31,7 +32,8 @@ function getApiRoot(request, res) {
     })
         .catch((error) => {
         // Log the error for debugging
-        errorLogger("Error fetching API root", error);
+        if (config_1.VERBOSE)
+            errorLogger("Error fetching API root", error);
         // Return a standardized error response
         res.setHeader("Content-Type", "application/json");
         res.status(500);

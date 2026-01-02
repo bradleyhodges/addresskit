@@ -26,6 +26,7 @@ __exportStar(require("./resourceMonitor"), exports);
 __exportStar(require("./searchCache"), exports);
 __exportStar(require("./circuitBreaker"), exports);
 __exportStar(require("./terminalUI"), exports);
+__exportStar(require("./jsonapi"), exports);
 // Re-export clearAuthorityCodeMaps for use during data reload
 var propertyCodeToName_1 = require("./propertyCodeToName");
 Object.defineProperty(exports, "clearAuthorityCodeMaps", { enumerable: true, get: function () { return propertyCodeToName_1.clearAuthorityCodeMaps; } });

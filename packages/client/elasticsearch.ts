@@ -45,6 +45,14 @@ const ELASTIC_USERNAME = process.env.ELASTIC_USERNAME ?? undefined;
 const ELASTIC_PASSWORD = process.env.ELASTIC_PASSWORD ?? undefined;
 const ELASTIC_PROTOCOL = process.env.ELASTIC_PROTOCOL ?? "http";
 
+/**
+ * Whether to enable verbose logging.
+ *
+ * @default false
+ * @env VERBOSE
+ */
+export const VERBOSE = process.env.VERBOSE === "true";
+
 declare global {
     // OpenSearch client reused by the API server after bootstrap.
     // eslint-disable-next-line no-var

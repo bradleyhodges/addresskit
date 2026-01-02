@@ -4,6 +4,7 @@ exports.readFileContents = exports.loadFileCounts = exports.fileExists = exports
 const fs = require("node:fs");
 const path = require("node:path");
 const Papa = require("papaparse");
+const config_1 = require("../config");
 const index_1 = require("../index");
 /**
  * Gets the files from the given directory.
@@ -19,7 +20,8 @@ const getFiles = async (currentDir, baseDir) => {
     // Get the directory
     const dir = path.resolve(baseDir, currentDir);
     // Log the directory
-    (0, index_1.logger)(`reading ${dir} (${currentDir} in ${baseDir})`);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)(`reading ${dir} (${currentDir} in ${baseDir})`);
     // Get the directory entries
     const dirents = await (0, index_1.readdir)(dir, { withFileTypes: true });
     // Get the files
@@ -134,7 +136,8 @@ const loadFileCounts = async (countsFile) => {
              * Once completed, log for audit and resolve to allow the result to be returned.
              */
             complete: () => {
-                (0, index_1.logger)("GNAF data loaded");
+                if (config_1.VERBOSE)
+                    (0, index_1.logger)("GNAF data loaded");
                 resolve();
             },
             /**
@@ -147,7 +150,8 @@ const loadFileCounts = async (countsFile) => {
         });
     });
     // Log the files counts
-    (0, index_1.logger)("filesCounts", filesCounts);
+    if (config_1.VERBOSE)
+        (0, index_1.logger)("filesCounts", filesCounts);
     // Return the files counts
     return filesCounts;
 };

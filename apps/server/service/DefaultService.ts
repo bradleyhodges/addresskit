@@ -1,7 +1,7 @@
 import debug from "debug";
 import LinkHeader = require("http-link-header");
-import { setLinkOptions } from "./setLinkOptions";
 import { VERBOSE } from "./config";
+import { setLinkOptions } from "./setLinkOptions";
 
 /**
  * The logger for the API root service.

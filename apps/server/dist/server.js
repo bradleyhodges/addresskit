@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const elasticsearch_1 = require("@repo/addresskit-client/elasticsearch");
 const debug_1 = require("debug");
+const config_1 = require("./service/config");
 const printVersion_1 = require("./service/printVersion");
 const swagger_1 = require("./swagger");
 /**
@@ -18,13 +19,16 @@ const logger = (0, debug_1.default)("api");
 async function bootstrap() {
     // Start the server
     await (0, swagger_1.startServer)();
-    logger("server started");
+    if (config_1.VERBOSE)
+        logger("server started");
     // Connect to the Elasticsearch client
-    logger("connecting es client");
+    if (config_1.VERBOSE)
+        logger("connecting es client");
     const esClient = await (0, elasticsearch_1.esConnect)();
     // Set the Elasticsearch client on the global scope
     global.esClient = esClient;
-    logger("es client connected");
+    if (config_1.VERBOSE)
+        logger("es client connected");
     // Print the version and environment
     console.log("=======================");
     console.log("AddressKit - API Server");
@@ -38,7 +42,8 @@ async function bootstrap() {
  * @returns {Promise<void>}
  */
 void bootstrap().catch((error) => {
-    logger("server bootstrap failed", error);
+    if (config_1.VERBOSE)
+        logger("server bootstrap failed", error);
     throw error;
 });
 //# sourceMappingURL=server.js.map

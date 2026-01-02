@@ -18,4 +18,5 @@ __exportStar(require("./gnaf-properties"), exports);
 __exportStar(require("./loader-types"), exports);
 __exportStar(require("./shared-types"), exports);
 __exportStar(require("./lookup-types"), exports);
+__exportStar(require("./jsonapi-types"), exports);
 //# sourceMappingURL=index.js.map

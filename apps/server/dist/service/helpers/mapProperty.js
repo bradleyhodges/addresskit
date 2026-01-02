@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.mapAuthCodeTableToSynonymList = exports.mapAddressDetails = exports.mapToShortMla = exports.mapToMla = exports.mapToSla = exports.mapGeo = exports.mapStreetLocality = exports.mapLocality = void 0;
+const config_1 = require("../config");
 const index_1 = require("../index");
 const propertyCodeToName_1 = require("./propertyCodeToName");
 /**
@@ -200,7 +201,8 @@ const mapToMla = (s) => {
     fla.push(`${number} ${street}`);
     fla.push(`${s.locality.name ?? ""} ${s.state.abbreviation} ${s.postcode ?? ""}`);
     if (fla.length > 4) {
-        (0, index_1.logger)("FLA TOO LONG", fla, s);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("FLA TOO LONG", fla, s);
         throw new Error("FLA TOO LONG");
     }
     return fla;
@@ -240,7 +242,8 @@ const mapToShortMla = (s) => {
     fla.push(`${number} ${street}`);
     fla.push(`${s.locality.name ?? ""} ${s.state.abbreviation} ${s.postcode ?? ""}`);
     if (fla.length > 4) {
-        (0, index_1.logger)("FLA TOO LONG", fla, s);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("FLA TOO LONG", fla, s);
         throw new Error("FLA TOO LONG");
     }
     return fla;
@@ -408,13 +411,17 @@ const mapAddressDetails = (d, context, i, count) => {
         if (i &&
             Math.ceil(count / 100) !== 0 &&
             i % Math.ceil(count / 100) === 0) {
-            (0, index_1.logger)("addr", JSON.stringify(rval, undefined, 2));
-            (0, index_1.logger)(`${(i / count) * 100}%`);
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("addr", JSON.stringify(rval, undefined, 2));
+            if (config_1.VERBOSE)
+                (0, index_1.logger)(`${(i / count) * 100}%`);
         }
     }
     else if ((i || 0) % 10000 === 0) {
-        (0, index_1.logger)("addr", JSON.stringify(rval, undefined, 2));
-        (0, index_1.logger)(`${i} rows`);
+        if (config_1.VERBOSE)
+            (0, index_1.logger)("addr", JSON.stringify(rval, undefined, 2));
+        if (config_1.VERBOSE)
+            (0, index_1.logger)(`${i} rows`);
     }
     return rval;
 };

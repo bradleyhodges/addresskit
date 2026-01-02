@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.waitForMemory = exports.isMemoryPressure = exports.getOptimalConcurrency = exports.getOptimalChunkSize = exports.ResourceMonitor = void 0;
 const os = require("node:os");
 const debug_1 = require("debug");
+const config_1 = require("../config");
 // ---------------------------------------------------------------------------------
 // Debug Loggers
 // ---------------------------------------------------------------------------------
@@ -101,8 +102,10 @@ class ResourceMonitor {
             checkIntervalMs: config?.checkIntervalMs ?? MEMORY_CHECK_INTERVAL_MS,
         };
         // Log initial resource state on creation
-        logger("ResourceMonitor initialized with config:", this.config);
-        logger("Initial resource state:", this.getSnapshot());
+        if (config_1.VERBOSE)
+            logger("ResourceMonitor initialized with config:", this.config);
+        if (config_1.VERBOSE)
+            logger("Initial resource state:", this.getSnapshot());
     }
     /**
      * Gets the singleton ResourceMonitor instance.
@@ -189,7 +192,8 @@ class ResourceMonitor {
         const cpuBasedConcurrency = Math.max(1, snapshot.cpuCount - 1);
         // Reduce concurrency if under memory pressure
         if (snapshot.memoryPressure) {
-            logger("Memory pressure detected, reducing concurrency to 1");
+            if (config_1.VERBOSE)
+                logger("Memory pressure detected, reducing concurrency to 1");
             return 1;
         }
         // Calculate memory-based concurrency limit
@@ -223,11 +227,13 @@ class ResourceMonitor {
     startMonitoring() {
         // Avoid duplicate monitoring intervals
         if (this.isMonitoring) {
-            logger("Monitoring already active, skipping start");
+            if (config_1.VERBOSE)
+                logger("Monitoring already active, skipping start");
             return;
         }
         this.isMonitoring = true;
-        logger("Starting resource monitoring");
+        if (config_1.VERBOSE)
+            logger("Starting resource monitoring");
         // Set up periodic monitoring
         this.monitoringInterval = setInterval(() => {
             this.checkResources();
@@ -243,7 +249,8 @@ class ResourceMonitor {
             return;
         }
         this.isMonitoring = false;
-        logger("Stopping resource monitoring");
+        if (config_1.VERBOSE)
+            logger("Stopping resource monitoring");
         if (this.monitoringInterval !== undefined) {
             clearInterval(this.monitoringInterval);
             this.monitoringInterval = undefined;
@@ -290,12 +297,14 @@ class ResourceMonitor {
         // Check if gc() is exposed (requires --expose-gc V8 flag)
         // biome-ignore lint/suspicious/noExplicitAny: Accessing global gc() which may not exist
         if (typeof global.gc === "function") {
-            logger("Forcing garbage collection");
+            if (config_1.VERBOSE)
+                logger("Forcing garbage collection");
             // biome-ignore lint/suspicious/noExplicitAny: Accessing global gc() which may not exist
             global.gc();
             return true;
         }
-        logger("Garbage collection not available (run with --expose-gc)");
+        if (config_1.VERBOSE)
+            logger("Garbage collection not available (run with --expose-gc)");
         return false;
     }
     /**
@@ -304,16 +313,26 @@ class ResourceMonitor {
     logResourceReport() {
         const snapshot = this.getSnapshot();
         const formatMB = (bytes) => `${Math.round(bytes / (1024 * 1024))}MB`;
-        logger("=== Resource Report ===");
-        logger(`Total Memory:     ${formatMB(snapshot.totalMemory)}`);
-        logger(`Free Memory:      ${formatMB(snapshot.freeMemory)}`);
-        logger(`Process RSS:      ${formatMB(snapshot.processMemory)}`);
-        logger(`Heap Used:        ${formatMB(snapshot.heapUsed)}`);
-        logger(`Heap Total:       ${formatMB(snapshot.heapTotal)}`);
-        logger(`CPU Cores:        ${snapshot.cpuCount}`);
-        logger(`Optimal Chunk:    ${snapshot.optimalChunkSizeMB}MB`);
-        logger(`Memory Pressure:  ${snapshot.memoryPressure}`);
-        logger("========================");
+        if (config_1.VERBOSE)
+            logger("=== Resource Report ===");
+        if (config_1.VERBOSE)
+            logger(`Total Memory:     ${formatMB(snapshot.totalMemory)}`);
+        if (config_1.VERBOSE)
+            logger(`Free Memory:      ${formatMB(snapshot.freeMemory)}`);
+        if (config_1.VERBOSE)
+            logger(`Process RSS:      ${formatMB(snapshot.processMemory)}`);
+        if (config_1.VERBOSE)
+            logger(`Heap Used:        ${formatMB(snapshot.heapUsed)}`);
+        if (config_1.VERBOSE)
+            logger(`Heap Total:       ${formatMB(snapshot.heapTotal)}`);
+        if (config_1.VERBOSE)
+            logger(`CPU Cores:        ${snapshot.cpuCount}`);
+        if (config_1.VERBOSE)
+            logger(`Optimal Chunk:    ${snapshot.optimalChunkSizeMB}MB`);
+        if (config_1.VERBOSE)
+            logger(`Memory Pressure:  ${snapshot.memoryPressure}`);
+        if (config_1.VERBOSE)
+            logger("========================");
     }
 }
 exports.ResourceMonitor = ResourceMonitor;
@@ -371,7 +390,8 @@ const waitForMemory = async (checkIntervalMs = 1000, maxWaitMs = 30000) => {
         // Try to force GC to reclaim memory
         ResourceMonitor.getInstance().tryForceGC();
         // Wait before checking again
-        logger(`Waiting for memory (${checkIntervalMs}ms)...`);
+        if (config_1.VERBOSE)
+            logger(`Waiting for memory (${checkIntervalMs}ms)...`);
         await new Promise((resolve) => setTimeout(resolve, checkIntervalMs));
     }
 };

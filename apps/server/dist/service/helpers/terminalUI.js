@@ -116,10 +116,6 @@ function getDaemonMode() {
     return isDaemonMode;
 }
 /**
- * Custom spinner frames for a unique visual style.
- */
-const spinnerFrames = ["◐", "◓", "◑", "◒"];
-/**
  * Creates and starts a new spinner with the given message.
  * If in daemon mode, returns a mock spinner that does nothing.
  *
@@ -148,10 +144,6 @@ function startSpinner(text) {
     }
     currentSpinner = ora({
         text: exports.theme.info(text),
-        spinner: {
-            interval: 80,
-            frames: spinnerFrames,
-        },
         color: "cyan",
     }).start();
     return currentSpinner;

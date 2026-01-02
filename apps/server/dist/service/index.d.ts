@@ -62,40 +62,53 @@ declare const searchForAddress: (searchString: string, p: number | undefined, pa
  * Retrieves detailed information about a specific address by its ID.
  *
  * This function queries OpenSearch for the address document, constructs the
- * response with proper HATEOAS links, and generates an ETag hash for caching.
- * Operations are protected by a circuit breaker to handle OpenSearch failures gracefully.
+ * response as a JSON:API document with proper links, and generates an ETag hash
+ * for caching. Operations are protected by a circuit breaker to handle OpenSearch
+ * failures gracefully.
  *
  * @param {string} addressId - The unique identifier for the address (G-NAF PID).
  * @returns {Promise<Types.GetAddressResponse>} A promise resolving to either:
- *   - Success: `{ link, json, hash }` containing the address data and navigation links
- *   - Error: `{ statusCode, json }` with appropriate HTTP status and error message
+ *   - Success: `{ link, json, hash }` containing the JSON:API document and navigation links
+ *   - Error: `{ statusCode, json }` with appropriate HTTP status and JSON:API error document
  */
 declare const getAddress: (addressId: string) => Promise<Types.GetAddressResponse>;
 /**
  * Searches for addresses matching a query string with pagination support.
  *
- * This function performs a fuzzy search against the address index, constructing
- * proper HATEOAS pagination links and API discovery templates in the response.
+ * This function performs a fuzzy search against the address index, returning
+ * minimal autocomplete suggestions in JSON:API format with proper pagination.
+ * The response is optimized for fast rendering of autocomplete dropdowns.
  *
  * @param {string} url - The base URL for the addresses endpoint (used for link construction).
  * @param {Types.SwaggerContext} swagger - Swagger/OpenAPI context for API documentation linkage.
  * @param {string} [q] - The search query string for address matching.
  * @param {number} [p=1] - The page number for pagination (1-indexed).
  * @returns {Promise<Types.GetAddressesResponse>} A promise resolving to either:
- *   - Success: `{ link, json, linkTemplate }` containing search results and navigation
- *   - Error: `{ statusCode, json }` with appropriate HTTP status and error message
+ *   - Success: `{ link, json, linkTemplate }` containing JSON:API autocomplete results
+ *   - Error: `{ statusCode, json }` with appropriate HTTP status and JSON:API error document
  */
 declare const getAddresses: (url: string, swagger: Types.SwaggerContext, q?: string, p?: number) => Promise<Types.GetAddressesResponse>;
 /**
- * Transforms raw OpenSearch search hits into the standardised API response format.
+ * Transforms raw OpenSearch search hits into JSON:API autocomplete resources.
  *
- * This function maps the internal OpenSearch document structure to a clean,
- * client-facing response containing the address SLA, relevance score, and
- * HATEOAS self-links for each result.
+ * This function maps the internal OpenSearch document structure to JSON:API
+ * resource objects optimized for autocomplete, containing only the essential
+ * display text (SLA), relevance rank, and self-link.
  *
  * @param {Types.OpensearchApiResponse<Types.OpensearchSearchResponse<unknown>, unknown>} foundAddresses -
  *   The raw OpenSearch search response containing hits.
- * @returns {Types.AddressSearchResult[]} An array of address results formatted for the API.
+ * @returns {Types.JsonApiResource<Types.AddressAutocompleteAttributes>[]} Array of JSON:API resources.
+ */
+declare const mapToJsonApiAutocompleteResponse: (foundAddresses: Types.OpensearchApiResponse<Types.OpensearchSearchResponse<unknown>, unknown>) => Types.JsonApiResource<Types.AddressAutocompleteAttributes>[];
+/**
+ * Transforms raw OpenSearch search hits into the legacy API response format.
+ *
+ * @deprecated Use mapToJsonApiAutocompleteResponse for JSON:API compliant responses.
+ * This function is retained for backwards compatibility during the transition period.
+ *
+ * @param {Types.OpensearchApiResponse<Types.OpensearchSearchResponse<unknown>, unknown>} foundAddresses -
+ *   The raw OpenSearch search response containing hits.
+ * @returns {Types.AddressSearchResult[]} An array of address results formatted for the legacy API.
  */
 declare const mapToSearchAddressResponse: (foundAddresses: Types.OpensearchApiResponse<Types.OpensearchSearchResponse<unknown>, unknown>) => Types.AddressSearchResult[];
 /**
@@ -112,5 +125,5 @@ export default _default;
 /**
  * Named exports for direct function access (useful for testing and controllers).
  */
-export { getAddress, getAddresses, mapToSearchAddressResponse, setAddresses, searchForAddress, };
+export { getAddress, getAddresses, mapToSearchAddressResponse, mapToJsonApiAutocompleteResponse, setAddresses, searchForAddress, };
 //# sourceMappingURL=index.d.ts.map

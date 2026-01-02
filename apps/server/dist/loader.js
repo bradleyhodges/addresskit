@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const elasticsearch_1 = require("@repo/addresskit-client/elasticsearch");
 const debug_1 = require("debug");
 const service_1 = require("./service");
+const config_1 = require("./service/config");
 const printVersion_1 = require("./service/printVersion");
 /**
  * The logger for the API.
@@ -26,7 +27,8 @@ async function runLoader() {
     const start = process.hrtime();
     // Connect to the Elasticsearch client
     await (0, elasticsearch_1.esConnect)();
-    logger("es client connected");
+    if (config_1.VERBOSE)
+        logger("es client connected");
     // Print the version and environment
     console.log("======================");
     console.log("AddressKit - Data Loader");
@@ -34,11 +36,14 @@ async function runLoader() {
     (0, printVersion_1.printVersion)();
     // Load the G-NAF data
     await service_1.default.load();
-    logger("data loaded");
+    if (config_1.VERBOSE)
+        logger("data loaded");
     // Get the end time
     const end = process.hrtime(start);
-    logger(`Execution time: ${end[0]}s ${end[1] / 1_000_000}ms`);
-    logger("Fin");
+    if (config_1.VERBOSE)
+        logger(`Execution time: ${end[0]}s ${end[1] / 1_000_000}ms`);
+    if (config_1.VERBOSE)
+        logger("Fin");
 }
 /**
  * Run the loader and catch any errors

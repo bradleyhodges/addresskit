@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getApiRoot = getApiRoot;
 const debug_1 = require("debug");
 const LinkHeader = require("http-link-header");
+const config_1 = require("./config");
 const setLinkOptions_1 = require("./setLinkOptions");
 /**
  * The logger for the API root service.
@@ -32,7 +33,8 @@ const isSwaggerDocAvailable = () => {
 async function getApiRoot() {
     // Verify Swagger document is loaded before proceeding
     if (!isSwaggerDocAvailable()) {
-        logger("Swagger document not available");
+        if (config_1.VERBOSE)
+            logger("Swagger document not available");
         throw new Error("API documentation not loaded");
     }
     // Get paths that have GET operations with x-root-rel defined
@@ -79,7 +81,8 @@ async function getApiRoot() {
         const op = global.swaggerDoc.paths[url]
             .get;
         // Log the operation for debugging
-        logger("Adding link template for:", op.operationId);
+        if (config_1.VERBOSE)
+            logger("Adding link template for:", op.operationId);
         // Set the link options (adds templated URI with query parameters)
         (0, setLinkOptions_1.setLinkOptions)(op, url, linkTemplate);
     }
