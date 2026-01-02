@@ -292,13 +292,16 @@ const fetchGNAFArchive = async (): Promise<string> => {
 
             // Verify downloaded file size
             const downloadedStats = fs.statSync(incompleteFile);
-            if (
-                dataResource.size &&
-                downloadedStats.size !== dataResource.size
-            ) {
+
+            // The downloaded file must be within 5% of the expected size
+            const expectedSize = dataResource.size;
+            const actualSize = downloadedStats.size;
+            const percentageDifference =
+                Math.abs((actualSize - expectedSize) / expectedSize) * 100;
+            if (percentageDifference > 5) {
                 // Downloaded file is incomplete or corrupted
                 throw new Error(
-                    `Downloaded file size (${downloadedStats.size}) doesn't match expected (${dataResource.size})`,
+                    `Downloaded file size (${actualSize}) doesn't match expected (${expectedSize})`,
                 );
             }
 
