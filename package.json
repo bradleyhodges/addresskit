@@ -17,7 +17,7 @@
         "publish:npm": "npm publish --access public",
         "publish:github": "npm publish --access public --registry=https://npm.pkg.github.com",
         "publish:all": "pnpm run publish:npm && pnpm run publish:github",
-        "release": "git tag v%npm_package_version% && git push origin main --tags",
+        "release": "git tag v%npm_package_version% && git push origin master --tags",
         "dev": "turbo run dev --parallel --filter=!@bradleyhodges/addresskit",
         "smoke": "node tooling/smoke/smoke.mjs",
         "format": "biome check . --write --skip-errors",
