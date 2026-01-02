@@ -6,6 +6,7 @@ import * as express from "express";
 import type { Express, NextFunction, Request, Response } from "express";
 import { load } from "js-yaml";
 import { initializeMiddleware } from "swagger-tools";
+import { VERBOSE } from "./service/config";
 
 /**
  * The swagger middleware type.
@@ -206,17 +207,19 @@ export function startServer(): Promise<string> {
         // Listen on the server port
         server.listen(serverPort, () => {
             // Log the server listening
-            logger(
-                "📡  AddressKit is listening on port %d ( http://localhost:%d ) ",
-                serverPort,
-                serverPort,
-            );
+            if (VERBOSE)
+                logger(
+                    "📡  AddressKit is listening on port %d ( http://localhost:%d ) ",
+                    serverPort,
+                    serverPort,
+                );
 
             // Log that the swagger-ui is available
-            logger(
-                "📑  Swagger-ui is available on http://localhost:%d/docs",
-                serverPort,
-            );
+            if (VERBOSE)
+                logger(
+                    "📑  Swagger-ui is available on http://localhost:%d/docs",
+                    serverPort,
+                );
         });
 
         // Return the server URL

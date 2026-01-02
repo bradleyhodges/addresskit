@@ -231,7 +231,8 @@ async function esConnect(esport = exports.ELASTIC_PORT, eshost = ELASTIC_HOST, i
                         };
                         // Create a new client
                         const esClient = new opensearch_1.Client(esClientOptions);
-                        logger(`connecting elastic search client on ${eshost}:${esport}...`);
+                        if (exports.VERBOSE)
+                            logger(`connecting elastic search client on ${eshost}:${esport}...`);
                         // Ping the client
                         await esClient.ping();
                         if (exports.VERBOSE)

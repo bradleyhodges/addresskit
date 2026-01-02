@@ -6,6 +6,7 @@ import debug from "debug";
 import * as express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { getAddress, searchForAddress } from "../service";
+import { VERBOSE } from "../service/config";
 
 /**
  * The result of a get address request.
@@ -312,11 +313,12 @@ export async function startRest2Server(): Promise<string> {
      * @returns {void} Nothing; side-effects are logging only.
      */
     const logStartup = (): void => {
-        logger(
-            "📡  AddressKit is listening on port %d ( http://localhost:%d ) ",
-            serverPort,
-            serverPort,
-        );
+        if (VERBOSE)
+            logger(
+                "📡  AddressKit is listening on port %d ( http://localhost:%d ) ",
+                serverPort,
+                serverPort,
+            );
     };
 
     /**

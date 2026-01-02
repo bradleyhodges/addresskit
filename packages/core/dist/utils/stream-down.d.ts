@@ -13,6 +13,23 @@ export interface DownloadProgress {
     etaSeconds: number;
     /** Percentage complete (0-100) */
     percentComplete: number;
+    /** Whether the download is being resumed from a partial file */
+    isResuming?: boolean;
+    /** Size of the existing partial file (if resuming) */
+    resumedFromBytes?: number;
+}
+/**
+ * Result information returned after download completes.
+ */
+export interface DownloadResult {
+    /** The HTTP response from the server */
+    response: IncomingMessage;
+    /** Whether the download was resumed from a partial file */
+    resumed: boolean;
+    /** Bytes downloaded in this session (excludes resumed bytes) */
+    bytesDownloadedThisSession: number;
+    /** Total bytes of the complete file */
+    totalBytes: number;
 }
 /**
  * Options for the streamDown function.
@@ -28,6 +45,10 @@ export interface StreamDownOptions {
     onProgress?: (progress: DownloadProgress) => void;
     /** Progress update interval in milliseconds (default: 100ms) */
     progressInterval?: number;
+    /** Enable resume for incomplete downloads (default: true) */
+    enableResume?: boolean;
+    /** Called when an incomplete file is detected */
+    onIncompleteDetected?: (existingBytes: number, expectedBytes: number) => void;
 }
 /**
  * Downloads a remote file to disk with optional progress callbacks.

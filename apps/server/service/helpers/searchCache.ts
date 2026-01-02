@@ -152,9 +152,10 @@ export class LRUCache<T> {
             this.startMaintenance();
         }
 
-        logger(
-            `LRU cache initialized: maxEntries=${this.config.maxEntries}, ttlMs=${this.config.ttlMs}`,
-        );
+        if (VERBOSE)
+            logger(
+                `LRU cache initialized: maxEntries=${this.config.maxEntries}, ttlMs=${this.config.ttlMs}`,
+            );
     }
 
     /**
@@ -196,9 +197,10 @@ export class LRUCache<T> {
         this.cache.delete(key);
         this.cache.set(key, entry);
 
-        logger(
-            `Cache HIT: "${key.substring(0, 50)}..." (hits: ${entry.hitCount})`,
-        );
+        if (VERBOSE)
+            logger(
+                `Cache HIT: "${key.substring(0, 50)}..." (hits: ${entry.hitCount})`,
+            );
         return entry.value;
     }
 
@@ -228,9 +230,10 @@ export class LRUCache<T> {
 
         // Store in cache
         this.cache.set(key, entry);
-        logger(
-            `Cache SET: "${key.substring(0, 50)}..." (size: ${this.cache.size})`,
-        );
+        if (VERBOSE)
+            logger(
+                `Cache SET: "${key.substring(0, 50)}..." (size: ${this.cache.size})`,
+            );
     }
 
     /**
@@ -323,9 +326,10 @@ export class LRUCache<T> {
         if (firstKey !== undefined) {
             this.cache.delete(firstKey);
             this.stats.lruEvictions++;
-            logger(
-                `Cache LRU EVICT: "${String(firstKey).substring(0, 50)}..."`,
-            );
+            if (VERBOSE)
+                logger(
+                    `Cache LRU EVICT: "${String(firstKey).substring(0, 50)}..."`,
+                );
         }
     }
 

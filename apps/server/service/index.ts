@@ -579,10 +579,11 @@ const getAddresses = async (
             meta,
         );
 
-        logger(
-            "jsonApiDocument",
-            JSON.stringify(jsonApiDocument, undefined, 2),
-        );
+        if (VERBOSE)
+            logger(
+                "jsonApiDocument",
+                JSON.stringify(jsonApiDocument, undefined, 2),
+            );
 
         // Initialize the Link header for HATEOAS navigation (kept for backwards compatibility)
         const link = new LinkHeader();

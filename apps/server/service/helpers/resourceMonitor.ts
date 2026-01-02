@@ -297,9 +297,10 @@ export class ResourceMonitor {
             Math.min(cpuBasedConcurrency, memoryBasedConcurrency),
         );
 
-        logger(
-            `Optimal concurrency: ${optimalConcurrency} (CPU: ${cpuBasedConcurrency}, Memory: ${memoryBasedConcurrency})`,
-        );
+        if (VERBOSE)
+            logger(
+                `Optimal concurrency: ${optimalConcurrency} (CPU: ${cpuBasedConcurrency}, Memory: ${memoryBasedConcurrency})`,
+            );
 
         return optimalConcurrency;
     }

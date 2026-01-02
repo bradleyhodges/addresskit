@@ -197,10 +197,11 @@ export class CircuitBreaker {
             name: config?.name ?? "default",
         };
 
-        logger(
-            `Circuit breaker '${this.config.name}' initialized:`,
-            this.config,
-        );
+        if (VERBOSE)
+            logger(
+                `Circuit breaker '${this.config.name}' initialized:`,
+                this.config,
+            );
     }
 
     /**
@@ -221,9 +222,10 @@ export class CircuitBreaker {
         if (!this.canExecute()) {
             const retryAfter = this.getRetryAfterMs();
             this.totalRejections++;
-            logger(
-                `Circuit '${this.config.name}' REJECTED request (state: ${this.state})`,
-            );
+            if (VERBOSE)
+                logger(
+                    `Circuit '${this.config.name}' REJECTED request (state: ${this.state})`,
+                );
             throw new CircuitOpenError(this.config.name, retryAfter);
         }
 
@@ -295,9 +297,10 @@ export class CircuitBreaker {
             durationMs,
         });
 
-        logger(
-            `Circuit '${this.config.name}' operation SUCCESS (${durationMs}ms)`,
-        );
+        if (VERBOSE)
+            logger(
+                `Circuit '${this.config.name}' operation SUCCESS (${durationMs}ms)`,
+            );
 
         // Update state based on current state
         if (this.state === "HALF_OPEN") {
@@ -408,9 +411,10 @@ export class CircuitBreaker {
         // Prevent timeout from keeping the process alive
         this.resetTimeout.unref();
 
-        logger(
-            `Circuit '${this.config.name}' transitioned ${previousState} -> OPEN`,
-        );
+        if (VERBOSE)
+            logger(
+                `Circuit '${this.config.name}' transitioned ${previousState} -> OPEN`,
+            );
     }
 
     /**
@@ -421,9 +425,10 @@ export class CircuitBreaker {
         this.state = "HALF_OPEN";
         this.halfOpenSuccesses = 0;
 
-        logger(
-            `Circuit '${this.config.name}' transitioned ${previousState} -> HALF_OPEN`,
-        );
+        if (VERBOSE)
+            logger(
+                `Circuit '${this.config.name}' transitioned ${previousState} -> HALF_OPEN`,
+            );
     }
 
     /**
@@ -441,9 +446,10 @@ export class CircuitBreaker {
             this.resetTimeout = undefined;
         }
 
-        logger(
-            `Circuit '${this.config.name}' transitioned ${previousState} -> CLOSED`,
-        );
+        if (VERBOSE)
+            logger(
+                `Circuit '${this.config.name}' transitioned ${previousState} -> CLOSED`,
+            );
     }
 
     /**
@@ -507,9 +513,10 @@ export class CircuitBreaker {
         this.openedAt = undefined;
         this.closedAt = Date.now();
 
-        logger(
-            `Circuit '${this.config.name}' manually reset from ${previousState}`,
-        );
+        if (VERBOSE)
+            logger(
+                `Circuit '${this.config.name}' manually reset from ${previousState}`,
+            );
     }
 
     /**

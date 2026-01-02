@@ -430,10 +430,11 @@ const unzipGNAFArchive = async (file: string): Promise<string> => {
                                             error_.code !== "ENOENT"
                                         ) {
                                             // Log the error
-                                            logger(
-                                                "error statting file",
-                                                error_,
-                                            );
+                                            if (VERBOSE)
+                                                logger(
+                                                    "error statting file",
+                                                    error_,
+                                                );
 
                                             // Drain the entry
                                             entry.autodrain();
@@ -449,10 +450,11 @@ const unzipGNAFArchive = async (file: string): Promise<string> => {
                                             stats.size === entry.size
                                         ) {
                                             // No need to extract again. Skip
-                                            logger(
-                                                "skipping extract for",
-                                                entryPath,
-                                            );
+                                            if (VERBOSE)
+                                                logger(
+                                                    "skipping extract for",
+                                                    entryPath,
+                                                );
                                             entry.autodrain();
                                             callback();
                                         } else {
@@ -468,18 +470,20 @@ const unzipGNAFArchive = async (file: string): Promise<string> => {
                                                 )
                                                 // On finish, log the message and call the callback
                                                 .on("finish", () => {
-                                                    logger(
-                                                        "finished extracting",
-                                                        entryPath,
-                                                    );
+                                                    if (VERBOSE)
+                                                        logger(
+                                                            "finished extracting",
+                                                            entryPath,
+                                                        );
                                                     callback();
                                                 })
                                                 // On error, log the message and call the callback
                                                 .on("error", (error: Error) => {
-                                                    logger(
-                                                        "error unzipping entry",
-                                                        error,
-                                                    );
+                                                    if (VERBOSE)
+                                                        logger(
+                                                            "error unzipping entry",
+                                                            error,
+                                                        );
                                                     callback(error);
                                                 });
                                         }
@@ -560,9 +564,10 @@ const loadGNAFAddress = async (
         ? getOptimalChunkSize()
         : LOADING_CHUNK_SIZE;
 
-    logger(
-        `Loading addresses with chunk size: ${chunkSizeMB}MB (dynamic: ${DYNAMIC_RESOURCES_ENABLED})`,
-    );
+    if (VERBOSE)
+        logger(
+            `Loading addresses with chunk size: ${chunkSizeMB}MB (dynamic: ${DYNAMIC_RESOURCES_ENABLED})`,
+        );
 
     // Create a promise to load the GNAF address details into the index
     await new Promise<void>((resolve, reject) => {
@@ -623,11 +628,12 @@ const loadGNAFAddress = async (
             },
             // On complete, log the message and resolve
             complete: () => {
-                logger(
-                    "Address details loaded",
-                    context.state,
-                    expectedCount || "",
-                );
+                if (VERBOSE)
+                    logger(
+                        "Address details loaded",
+                        context.state,
+                        expectedCount || "",
+                    );
                 resolve();
             },
             error: (_error, file) => {
@@ -1188,9 +1194,10 @@ const initGNAFDataLoader = async (
                     filesCounts,
                 );
             } else {
-                logger(
-                    `Skipping geos. set 'ADDRESSKIT_ENABLE_GEO' env var to enable`,
-                );
+                if (VERBOSE)
+                    logger(
+                        `Skipping geos. set 'ADDRESSKIT_ENABLE_GEO' env var to enable`,
+                    );
             }
 
             // Load and index the address details for this state
@@ -1418,11 +1425,12 @@ const loadSiteGeo = async (
                         // Log progress at 1% intervals
                         if (expectedCount) {
                             if (count % Math.ceil(expectedCount / 100) === 0) {
-                                logger(
-                                    `${Math.floor(
-                                        (count / expectedCount) * 100,
-                                    )}% (${count}/ ${expectedCount})`,
-                                );
+                                if (VERBOSE)
+                                    logger(
+                                        `${Math.floor(
+                                            (count / expectedCount) * 100,
+                                        )}% (${count}/ ${expectedCount})`,
+                                    );
                             }
                         }
 
@@ -1528,11 +1536,12 @@ const loadDefaultGeo = async (
                         // Log progress at 1% intervals
                         if (expectedCount) {
                             if (count % Math.ceil(expectedCount / 100) === 0) {
-                                logger(
-                                    `${Math.floor(
-                                        (count / expectedCount) * 100,
-                                    )}% (${count}/ ${expectedCount})`,
-                                );
+                                if (VERBOSE)
+                                    logger(
+                                        `${Math.floor(
+                                            (count / expectedCount) * 100,
+                                        )}% (${count}/ ${expectedCount})`,
+                                    );
                             }
                         }
 
@@ -1632,9 +1641,10 @@ const loadAuthFiles = async (
                             );
                         } else {
                             // Row count matches - log success and resolve
-                            logger(
-                                `loaded '${results.data.length}' rows from '${directory}/${authFile}' into key '${contextKey}'`,
-                            );
+                            if (VERBOSE)
+                                logger(
+                                    `loaded '${results.data.length}' rows from '${directory}/${authFile}' into key '${contextKey}'`,
+                                );
                             resolve();
                         }
                     } else {
@@ -1702,7 +1712,7 @@ export const loadCommandEntry = async ({
         // Register memory pressure callback to log warnings
         resourceMonitor.onMemoryPressure((snapshot) => {
             const msg = `Memory pressure: ${formatBytes(snapshot.freeMemory)} free, heap: ${formatBytes(snapshot.heapUsed)}`;
-            logger(msg);
+            if (VERBOSE) logger(msg);
             if (!getDaemonMode()) {
                 logWarning(msg);
             }
