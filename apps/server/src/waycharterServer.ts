@@ -57,17 +57,40 @@ type SearchForAddressResult = {
 };
 
 /**
- * The address collection body.
+ * JSON:API resource for an autocomplete suggestion.
  */
-type AddressCollectionBody = {
-    sla: string;
-    ssla?: string;
-    highlight: {
+type AddressSuggestionResource = {
+    type: "address-suggestion";
+    id: string;
+    attributes: {
         sla: string;
         ssla?: string;
+        rank: number;
     };
-    score: number;
-    pid: string;
+    links: {
+        self: string;
+    };
+};
+
+/**
+ * JSON:API document for autocomplete results.
+ */
+type AddressAutocompleteDocument = {
+    jsonapi: { version: string };
+    data: AddressSuggestionResource[];
+    links: {
+        self: string;
+        first?: string;
+        prev?: string | null;
+        next?: string | null;
+        last?: string;
+    };
+    meta: {
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    };
 };
 
 /**
@@ -144,25 +167,31 @@ function appendCorsHeaders(
 }
 
 /**
- * Maps a raw search hit into the API's public address structure.
+ * Maps a raw search hit into a JSON:API autocomplete resource.
  *
  * @param {AddressSearchHit} hit - Search hit returned by the backing index.
- * @returns {AddressCollectionBody} Normalized address payload for clients.
+ * @param {number} maxScore - The maximum score for normalization.
+ * @returns {AddressSuggestionResource} JSON:API resource for autocomplete.
  */
-function mapSearchHitToAddress(hit: AddressSearchHit): AddressCollectionBody {
-    // Use the first highlight snippet for each field if available, otherwise fall back to source
-    const highlightSla = hit.highlight?.sla?.[0] ?? hit._source.sla;
-    const highlightSsla = hit.highlight?.ssla?.[0] ?? hit._source.ssla;
+function mapSearchHitToResource(
+    hit: AddressSearchHit,
+    maxScore: number,
+): AddressSuggestionResource {
+    const addressId = hit._id.replace("/addresses/", "");
+    // Normalize score to 0-1 range relative to the best match
+    const normalizedRank = maxScore > 0 ? hit._score / maxScore : 0;
 
     return {
-        sla: hit._source.sla,
-        ...(hit._source.ssla && { ssla: hit._source.ssla }),
-        highlight: {
-            sla: highlightSla,
-            ...(highlightSsla && { ssla: highlightSsla }),
+        type: "address-suggestion",
+        id: addressId,
+        attributes: {
+            sla: hit._source.sla,
+            ...(hit._source.ssla && { ssla: hit._source.ssla }),
+            rank: Math.round(normalizedRank * 100) / 100,
         },
-        score: hit._score,
-        pid: hit._id.replace("/addresses/", ""),
+        links: {
+            self: `/addresses/${addressId}`,
+        },
     };
 }
 
@@ -201,13 +230,14 @@ async function loadAddressItem({ pid }: AddressLoaderParams): Promise<{
 
 /**
  * Retrieves a paginated collection of addresses matching the supplied query.
+ * Returns a JSON:API formatted document.
  *
  * @param {AddressCollectionParams} params - Pagination and query parameters from WayCharter.
- * @returns {Promise<{ body: AddressCollectionBody[]; hasMore: boolean; headers: Record<string, string>; }>} Collection response with cache headers.
+ * @returns {Promise<{ body: AddressAutocompleteDocument; hasMore: boolean; headers: Record<string, string>; }>} JSON:API collection response.
  * @throws {Error} When the provided page value cannot be parsed as a number.
  */
 async function loadAddressCollection(params: AddressCollectionParams): Promise<{
-    body: AddressCollectionBody[];
+    body: AddressAutocompleteDocument;
     hasMore: boolean;
     headers: Record<string, string>;
 }> {
@@ -219,6 +249,9 @@ async function loadAddressCollection(params: AddressCollectionParams): Promise<{
         throw new Error("Search page value must be numeric.");
     }
 
+    // Build base URL for pagination links
+    const baseUrl = `/addresses${q ? `?q=${encodeURIComponent(q)}` : ""}`;
+
     // If the query is defined and longer than 2 characters, search for addresses.
     if (q && q.length > 2) {
         logger("Searching for addresses with query:", q);
@@ -229,27 +262,58 @@ async function loadAddressCollection(params: AddressCollectionParams): Promise<{
             pageSize,
         )) as unknown as SearchForAddressResult;
 
-        logger("Search result totalHits:", searchResult.totalHits);
-        logger(
-            "Search response structure:",
-            JSON.stringify(Object.keys(searchResult)),
-        );
-
         // Extract hits from the nested searchResponse structure
         const hits = searchResult.searchResponse.body.hits.hits;
+        const totalHits = searchResult.totalHits;
+        const totalPages = Math.ceil(totalHits / pageSize);
+        const currentPage = resolvedPage + 1;
 
-        // Map the search hits to the address collection body.
-        const body = hits.map(mapSearchHitToAddress);
+        // Get max score for normalization (first hit typically has highest score)
+        const maxScore = hits.length > 0 ? hits[0]._score : 1;
+
+        // Map the search hits to JSON:API resources
+        const data = hits.map((hit) => mapSearchHitToResource(hit, maxScore));
+
+        // Build JSON:API document
+        const jsonApiDocument: AddressAutocompleteDocument = {
+            jsonapi: { version: "1.1" },
+            data,
+            links: {
+                self: `${baseUrl}${currentPage > 1 ? `&page[number]=${currentPage}` : ""}`,
+                first: baseUrl,
+                ...(currentPage > 1 && {
+                    prev:
+                        currentPage === 2
+                            ? baseUrl
+                            : `${baseUrl}&page[number]=${currentPage - 1}`,
+                }),
+                ...(currentPage < totalPages && {
+                    next: `${baseUrl}&page[number]=${currentPage + 1}`,
+                }),
+                ...(totalPages > 0 && {
+                    last:
+                        totalPages === 1
+                            ? baseUrl
+                            : `${baseUrl}&page[number]=${totalPages}`,
+                }),
+            },
+            meta: {
+                total: totalHits,
+                page: currentPage,
+                pageSize,
+                totalPages,
+            },
+        };
 
         // Create a hash of the body to use as the ETag.
         const responseHash = createHash("md5")
-            .update(JSON.stringify(body))
+            .update(JSON.stringify(jsonApiDocument))
             .digest("hex");
 
-        // Return the address collection body, hasMore, and headers.
+        // Return the JSON:API document, hasMore, and headers.
         return {
-            body,
-            hasMore: resolvedPage < searchResult.totalHits / pageSize - 1,
+            body: jsonApiDocument,
+            hasMore: currentPage < totalPages,
             headers: {
                 etag: `"${version}-${responseHash}"`,
                 "cache-control": `public, max-age=${ONE_WEEK}`,
@@ -258,8 +322,22 @@ async function loadAddressCollection(params: AddressCollectionParams): Promise<{
     }
 
     // Empty query responses still carry cache headers for intermediary caches.
+    const emptyDocument: AddressAutocompleteDocument = {
+        jsonapi: { version: "1.1" },
+        data: [],
+        links: {
+            self: baseUrl,
+        },
+        meta: {
+            total: 0,
+            page: 1,
+            pageSize,
+            totalPages: 0,
+        },
+    };
+
     return {
-        body: [],
+        body: emptyDocument,
         hasMore: false,
         headers: {
             etag: `"${version}"`,
