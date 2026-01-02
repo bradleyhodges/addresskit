@@ -283,6 +283,9 @@ importers:
       '@babel/node':
         specifier: ^7.28.0
         version: 7.28.0(@babel/core@7.28.5)
+      '@opensearch-project/opensearch':
+        specifier: ^2.13.0
+        version: 2.13.0
       '@types/debug':
         specifier: ^4.1.12
         version: 4.1.12

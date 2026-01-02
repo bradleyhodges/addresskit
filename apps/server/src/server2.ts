@@ -7,7 +7,7 @@ const logger = debug("api");
 
 declare global {
     // eslint-disable-next-line no-var
-    var esClient: Awaited<ReturnType<typeof esConnect>> | undefined;
+    var esClient: Awaited<ReturnType<typeof esConnect>>;
 }
 
 /**

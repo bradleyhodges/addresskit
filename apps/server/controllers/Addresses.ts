@@ -6,6 +6,13 @@ import {
     getAddresses as fetchAddresses,
 } from "../service/address-service";
 
+type AddressResponse = {
+    statusCode?: number;
+    json: unknown;
+    link?: { toString(): string };
+    linkTemplate?: { toString(): string };
+};
+
 type SwaggerRequest = Request & {
     // biome-ignore lint/suspicious/noExplicitAny: swagger-tools augments request at runtime
     swagger: any;
@@ -30,7 +37,9 @@ export function getAddress(request: SwaggerRequest, response: Response): void {
     const addressId = request.swagger.params.addressId.value;
 
     // Fetch the address
-    fetchAddress(addressId).then((addressResponse) => {
+    const addressPromise = fetchAddress(addressId) as Promise<AddressResponse>;
+
+    addressPromise.then((addressResponse) => {
         // If the address response has a status code, set the response headers and status code
         // and write the JSON response
         if (addressResponse.statusCode) {
@@ -40,7 +49,9 @@ export function getAddress(request: SwaggerRequest, response: Response): void {
         } else {
             // If the address response does not have a status code, set the response headers
             // and write the JSON response
-            response.setHeader("link", addressResponse.link.toString());
+            if (addressResponse.link) {
+                response.setHeader("link", addressResponse.link.toString());
+            }
             writeJson(response, addressResponse.json);
         }
     });
@@ -67,25 +78,34 @@ export function getAddresses(
     );
 
     // Fetch the addresses
-    fetchAddresses(url.pathname, request.swagger, q, p).then(
-        (addressesResponse) => {
-            // If the addresses response has a status code, set the response headers and status code
-            // and write the JSON response
-            if (addressesResponse.statusCode) {
-                response.setHeader("Content-Type", "application/json");
-                response.status(addressesResponse.statusCode);
-                response.json(addressesResponse.json);
-            } else {
-                // If the addresses response does not have a status code, set the response header
+    const addressesPromise = fetchAddresses(
+        url.pathname,
+        request.swagger,
+        q,
+        p,
+    ) as Promise<AddressResponse>;
+
+    addressesPromise.then((addressesResponse) => {
+        // If the addresses response has a status code, set the response headers and status code
+        // and write the JSON response
+        if (addressesResponse.statusCode) {
+            response.setHeader("Content-Type", "application/json");
+            response.status(addressesResponse.statusCode);
+            response.json(addressesResponse.json);
+        } else {
+            // If the addresses response does not have a status code, set the response header
+            if (addressesResponse.link) {
                 response.setHeader("link", addressesResponse.link.toString());
+            }
+            if (addressesResponse.linkTemplate) {
                 response.setHeader(
                     "link-template",
                     addressesResponse.linkTemplate.toString(),
                 );
-
-                // Write the JSON response
-                writeJson(response, addressesResponse.json);
             }
-        },
-    );
+
+            // Write the JSON response
+            writeJson(response, addressesResponse.json);
+        }
+    });
 }

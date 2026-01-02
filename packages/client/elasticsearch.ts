@@ -48,7 +48,7 @@ const ELASTIC_PROTOCOL = process.env.ELASTIC_PROTOCOL ?? "http";
 declare global {
     // OpenSearch client reused by the API server after bootstrap.
     // eslint-disable-next-line no-var
-    var esClient: Client | undefined;
+    var esClient: Client;
 }
 
 /**
