@@ -170,24 +170,32 @@ ${colors.cyan}Examples:${colors.reset}
 }
 
 /**
- * Validates required environment variables for Docker publishing.
+ * Checks for optional environment variables for Docker publishing.
+ * Credentials are optional if already logged in via Docker Desktop.
  *
  * @param {Object} args - Parsed arguments.
- * @returns {Object} Validation result with missing variables.
+ * @returns {Object} Info about credential sources.
  */
-function validateEnv(args) {
-    const missing = [];
+function checkEnv(args) {
+    const info = [];
 
     if (!args.skipDocker) {
-        if (!process.env.DOCKER_ID_USER) missing.push("DOCKER_ID_USER");
-        if (!process.env.DOCKER_ID_PASS) missing.push("DOCKER_ID_PASS");
+        if (process.env.DOCKER_ID_USER && process.env.DOCKER_ID_PASS) {
+            info.push("Docker Hub: using environment credentials");
+        } else {
+            info.push("Docker Hub: using Docker Desktop session");
+        }
     }
 
     if (!args.skipGhcr) {
-        if (!process.env.GITHUB_TOKEN) missing.push("GITHUB_TOKEN");
+        if (process.env.GITHUB_TOKEN) {
+            info.push("GHCR: using GITHUB_TOKEN");
+        } else {
+            info.push("GHCR: using Docker Desktop session");
+        }
     }
 
-    return { valid: missing.length === 0, missing };
+    return { info };
 }
 
 /**
@@ -318,15 +326,12 @@ async function release() {
         log("🧪", "DRY RUN MODE - No changes will be made", colors.yellow);
     }
 
-    // Validate environment
-    const envCheck = validateEnv(args);
-    if (!envCheck.valid) {
-        log(
-            "⚠",
-            `Missing environment variables: ${envCheck.missing.join(", ")}`,
-            colors.yellow,
-        );
-        log("", "Some publish steps may be skipped.", colors.yellow);
+    // Show credential info
+    const envInfo = checkEnv(args);
+    if (envInfo.info.length > 0) {
+        for (const info of envInfo.info) {
+            log("🔑", info, colors.dim);
+        }
     }
 
     // Step 1: Build (critical - must succeed)
@@ -434,43 +439,32 @@ async function release() {
 
             // Push to Docker Hub
             logSection("Pushing to Docker Hub");
+
+            // If credentials are provided, login first; otherwise assume Docker Desktop session
             if (process.env.DOCKER_ID_USER && process.env.DOCKER_ID_PASS) {
                 log("🔐", "Logging in to Docker Hub...", colors.blue);
-                const loginResult = exec(
+                exec(
                     `echo ${process.env.DOCKER_ID_PASS} | docker login --username ${process.env.DOCKER_ID_USER} --password-stdin`,
                     { silent: true },
                 );
-
-                if (loginResult.success) {
-                    log("📤", "Pushing to Docker Hub...", colors.blue);
-                    const pushVersionResult = exec(
-                        `docker push bradleyhodges/addresskit:${version}`,
-                    );
-                    const pushLatestResult = exec(
-                        "docker push bradleyhodges/addresskit:latest",
-                    );
-
-                    if (pushVersionResult.success && pushLatestResult.success) {
-                        results.dockerPush = { status: "success", message: "" };
-                        log("✓", "Pushed to Docker Hub", colors.green);
-                    } else {
-                        results.dockerPush = { status: "failed", message: "Push failed" };
-                        log("✖", "Failed to push to Docker Hub", colors.red);
-                    }
-                } else {
-                    results.dockerPush = { status: "failed", message: "Login failed" };
-                    log("✖", "Failed to login to Docker Hub", colors.red);
-                }
             } else {
-                results.dockerPush = {
-                    status: "skipped",
-                    message: "Credentials not set",
-                };
-                log(
-                    "⚠",
-                    "Docker credentials not set, skipping push",
-                    colors.yellow,
-                );
+                log("🔐", "Using existing Docker Desktop session...", colors.blue);
+            }
+
+            log("📤", "Pushing to Docker Hub...", colors.blue);
+            const pushVersionResult = exec(
+                `docker push bradleyhodges/addresskit:${version}`,
+            );
+            const pushLatestResult = exec(
+                "docker push bradleyhodges/addresskit:latest",
+            );
+
+            if (pushVersionResult.success && pushLatestResult.success) {
+                results.dockerPush = { status: "success", message: "" };
+                log("✓", "Pushed to Docker Hub", colors.green);
+            } else {
+                results.dockerPush = { status: "failed", message: "Push failed - check Docker login" };
+                log("✖", "Failed to push to Docker Hub (are you logged in?)", colors.red);
             }
         } else {
             results.dockerBuild = { status: "failed", message: "Build failed" };
@@ -497,39 +491,32 @@ async function release() {
 
             // Push to GHCR
             logSection("Pushing to GitHub Container Registry");
+
+            // If GITHUB_TOKEN is provided, login first; otherwise assume existing session
             if (process.env.GITHUB_TOKEN) {
                 log("🔐", "Logging in to GHCR...", colors.blue);
-                const loginResult = exec(
+                exec(
                     `echo ${process.env.GITHUB_TOKEN} | docker login ghcr.io -u bradleyhodges --password-stdin`,
                     { silent: true },
                 );
-
-                if (loginResult.success) {
-                    log("📤", "Pushing to GHCR...", colors.blue);
-                    const pushVersionResult = exec(
-                        `docker push ghcr.io/bradleyhodges/addresskit:${version}`,
-                    );
-                    const pushLatestResult = exec(
-                        "docker push ghcr.io/bradleyhodges/addresskit:latest",
-                    );
-
-                    if (pushVersionResult.success && pushLatestResult.success) {
-                        results.ghcrPush = { status: "success", message: "" };
-                        log("✓", "Pushed to GHCR", colors.green);
-                    } else {
-                        results.ghcrPush = { status: "failed", message: "Push failed" };
-                        log("✖", "Failed to push to GHCR", colors.red);
-                    }
-                } else {
-                    results.ghcrPush = { status: "failed", message: "Login failed" };
-                    log("✖", "Failed to login to GHCR", colors.red);
-                }
             } else {
-                results.ghcrPush = {
-                    status: "skipped",
-                    message: "GITHUB_TOKEN not set",
-                };
-                log("⚠", "GITHUB_TOKEN not set, skipping GHCR push", colors.yellow);
+                log("🔐", "Using existing Docker session for GHCR...", colors.blue);
+            }
+
+            log("📤", "Pushing to GHCR...", colors.blue);
+            const ghcrPushVersionResult = exec(
+                `docker push ghcr.io/bradleyhodges/addresskit:${version}`,
+            );
+            const ghcrPushLatestResult = exec(
+                "docker push ghcr.io/bradleyhodges/addresskit:latest",
+            );
+
+            if (ghcrPushVersionResult.success && ghcrPushLatestResult.success) {
+                results.ghcrPush = { status: "success", message: "" };
+                log("✓", "Pushed to GHCR", colors.green);
+            } else {
+                results.ghcrPush = { status: "failed", message: "Push failed - check GHCR login" };
+                log("✖", "Failed to push to GHCR (are you logged in?)", colors.red);
             }
         } else {
             results.ghcrBuild = { status: "failed", message: "Build failed" };
