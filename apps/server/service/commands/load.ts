@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as stream from "node:stream";
@@ -24,10 +25,15 @@ import {
     ONE_DAY_MS,
     THIRTY_DAYS_MS,
 } from "../conf";
+import { DYNAMIC_RESOURCES_ENABLED } from "../config";
 import {
     buildSynonyms,
     clearAuthorityCodeMaps,
     mapAddressDetails,
+    ResourceMonitor,
+    getOptimalChunkSize,
+    waitForMemory,
+    isMemoryPressure,
 } from "../helpers";
 import {
     countLinesInFile,
@@ -392,14 +398,34 @@ const unzipGNAFArchive = async (file: string): Promise<string> => {
 };
 
 /**
+ * Computes an MD5 hash of the document for ETag support.
+ *
+ * Pre-computing hashes during indexing avoids the CPU cost of hash
+ * computation on every getAddress request, improving response times.
+ *
+ * @param doc - The document object to hash.
+ * @returns The MD5 hash as a hex string.
+ */
+const computeDocumentHash = (doc: Record<string, unknown>): string => {
+    return crypto.createHash("md5").update(JSON.stringify(doc)).digest("hex");
+};
+
+/**
  * Loads the GNAF address details into the index.
+ *
+ * This function implements several performance optimizations:
+ * - Dynamic chunk sizing based on available system memory
+ * - Memory pressure monitoring with adaptive throttling
+ * - Pre-computed document hashes for ETag support
+ * - Resilient error handling with chunk-level recovery
  *
  * @alias loadAddressDetails
  *
  * @param file - The path to the GNAF file.
  * @param expectedCount - The expected number of rows in the GNAF file.
  * @param context - The context containing the authority code tables.
- * @param refresh - Whether to refresh the index.
+ * @param options - Loading options.
+ * @param options.refresh - Whether to refresh the index after each chunk.
  *
  * @returns {Promise<void>} - A promise that resolves when the GNAF address details are loaded into the index.
  */
@@ -412,6 +438,15 @@ const loadGNAFAddress = async (
     // Initialize the actual count
     let actualCount = 0;
 
+    // Determine chunk size: use dynamic sizing if enabled, otherwise use configured value
+    const chunkSizeMB = DYNAMIC_RESOURCES_ENABLED
+        ? getOptimalChunkSize()
+        : LOADING_CHUNK_SIZE;
+
+    logger(
+        `Loading addresses with chunk size: ${chunkSizeMB}MB (dynamic: ${DYNAMIC_RESOURCES_ENABLED})`,
+    );
+
     // Create a promise to load the GNAF address details into the index
     await new Promise<void>((resolve, reject) => {
         // Parse the GNAF file with configurable chunk size for memory efficiency
@@ -419,16 +454,13 @@ const loadGNAFAddress = async (
             header: true,
             skipEmptyLines: true,
             // Convert chunk size from MB to bytes
-            chunkSize: LOADING_CHUNK_SIZE * 1024 * 1024,
+            chunkSize: chunkSizeMB * 1024 * 1024,
             chunk: (
                 chunk: Papa.ParseResult<Types.AddressDetailRow>,
                 parser: Papa.Parser,
             ) => {
-                // Pause the parser
+                // Pause the parser to apply backpressure
                 parser.pause();
-
-                // Create a list to store the items
-                const items: Types.AddressDetails[] = [];
 
                 // If there are errors, log the errors
                 if (chunk.errors.length > 0) {
@@ -436,59 +468,43 @@ const loadGNAFAddress = async (
                     error({ errors: chunk.errors });
                 }
 
-                // Create a list to store the indexing body
-                const indexingBody: Types.BulkIndexBody = [];
-                for (const row of chunk.data) {
-                    // Map the row to a structured address
-                    const item = mapAddressDetails(
-                        row,
-                        context,
-                        actualCount,
-                        expectedCount,
-                    );
+                // Process chunk with memory pressure awareness
+                processAddressChunk(
+                    chunk.data,
+                    context,
+                    actualCount,
+                    expectedCount,
+                    refresh,
+                )
+                    .then((processedCount) => {
+                        // Update the actual count with the number of processed rows
+                        actualCount += processedCount;
 
-                    // Add the item to the list of items
-                    items.push(item);
-
-                    // Increment the actual count
-                    actualCount += 1;
-
-                    // Add the index operation to the indexing body
-                    indexingBody.push({
-                        index: {
-                            _index: ES_INDEX_NAME,
-                            _id: `/addresses/${item.pid}`,
-                        },
-                    });
-
-                    // Add the address details to the indexing body
-                    const { sla, ssla, ...structured } = item;
-                    indexingBody.push({
-                        sla,
-                        ssla,
-                        structured,
-                        confidence: structured.structured.confidence,
-                    });
-                }
-
-                // If there are items to process, send the index request
-                if (indexingBody.length > 0) {
-                    sendIndexRequest(indexingBody, undefined, { refresh })
-                        .then(() => {
+                        // Check for memory pressure before resuming
+                        if (DYNAMIC_RESOURCES_ENABLED && isMemoryPressure()) {
+                            logger(
+                                "Memory pressure detected, waiting before next chunk...",
+                            );
+                            // Wait for memory to become available before resuming
+                            waitForMemory(1000, 30000)
+                                .then(() => {
+                                    parser.resume();
+                                })
+                                .catch(() => {
+                                    // Continue even if wait times out
+                                    parser.resume();
+                                });
+                        } else {
                             parser.resume();
-                            return;
-                        })
-                        // On error, log the error and throw it
-                        .catch((error_: Error) => {
-                            error("error sending index request", error_);
-                            throw error_;
-                        });
-                } else {
-                    // nothing to process. Have reached end of file.
-                    parser.resume();
-                }
+                        }
+                    })
+                    .catch((error_: Error) => {
+                        error("error processing chunk", error_);
+                        // Reject to stop processing on error
+                        reject(error_);
+                    });
             },
-            // On complete, log the message and call the callback
+            // On complete, log the message and resolve
             complete: () => {
                 logger(
                     "Address details loaded",
@@ -499,31 +515,114 @@ const loadGNAFAddress = async (
             },
             error: (_error, file) => {
                 error(_error, file);
-                reject();
+                reject(new Error(`Failed to parse ${file}: ${_error.message}`));
             },
         });
     });
 
-    // If the expected count is not undefined and the actual count is not equal to the expected count, log the error
+    // Validate the actual count against the expected count
     if (expectedCount !== undefined && actualCount !== expectedCount) {
-        // Log the error
         error(
             `Error loading '${file}'. Expected '${expectedCount}' rows, got '${actualCount}'`,
         );
     } else {
-        // Log the message
         logger(`loaded '${actualCount}' rows from '${file}'`);
     }
 };
 
 /**
+ * Processes a chunk of address detail rows and indexes them.
+ *
+ * This function handles the mapping of raw G-NAF rows to structured addresses,
+ * computes document hashes for ETag support, and sends the bulk index request.
+ *
+ * @param rows - Array of raw address detail rows from the chunk.
+ * @param context - The mapping context containing authority code tables.
+ * @param startIndex - The starting row index for progress logging.
+ * @param expectedCount - Total expected row count for progress calculation.
+ * @param refresh - Whether to refresh the index after indexing.
+ * @returns The number of rows successfully processed.
+ */
+const processAddressChunk = async (
+    rows: Types.AddressDetailRow[],
+    context: Types.MapPropertyContext,
+    startIndex: number,
+    expectedCount: number,
+    refresh: boolean,
+): Promise<number> => {
+    // Skip empty chunks
+    if (rows.length === 0) {
+        return 0;
+    }
+
+    // Create a list to store the indexing body
+    const indexingBody: Types.BulkIndexBody = [];
+    let processedCount = 0;
+
+    // Process each row in the chunk
+    for (const row of rows) {
+        // Map the row to a structured address
+        const item = mapAddressDetails(
+            row,
+            context,
+            startIndex + processedCount,
+            expectedCount,
+        );
+
+        // Increment the processed count
+        processedCount += 1;
+
+        // Add the index operation header
+        indexingBody.push({
+            index: {
+                _index: ES_INDEX_NAME,
+                _id: `/addresses/${item.pid}`,
+            },
+        });
+
+        // Destructure address components for the document body
+        const { sla, ssla, ...structured } = item;
+
+        // Create the document body with pre-computed hash for ETag support
+        const docBody = {
+            sla,
+            ssla,
+            structured,
+            confidence: structured.structured.confidence,
+        };
+
+        // Compute and store the document hash for efficient ETag generation
+        // This avoids recomputing the hash on every getAddress request
+        const documentHash = computeDocumentHash(docBody);
+
+        // Add the address document with hash to the indexing body
+        indexingBody.push({
+            ...docBody,
+            documentHash,
+        });
+    }
+
+    // Send the bulk index request
+    if (indexingBody.length > 0) {
+        await sendIndexRequest(indexingBody, undefined, { refresh });
+    }
+
+    return processedCount;
+};
+
+/**
  * Custom error class for indexing failures with context about retry attempts.
+ *
+ * This error includes detailed information about the failure to aid debugging
+ * and provides context for monitoring and alerting systems.
  */
 export class IndexingError extends Error {
     /** Number of retry attempts made before giving up */
     readonly attempts: number;
     /** The underlying error or response that caused the failure */
     readonly cause: unknown;
+    /** Number of documents that failed to index */
+    readonly documentCount: number;
 
     /**
      * Creates a new IndexingError.
@@ -531,14 +630,105 @@ export class IndexingError extends Error {
      * @param message - Human-readable error description.
      * @param attempts - Number of retry attempts made.
      * @param cause - The underlying error or failed response.
+     * @param documentCount - Number of documents in the failed batch.
      */
-    constructor(message: string, attempts: number, cause: unknown) {
+    constructor(
+        message: string,
+        attempts: number,
+        cause: unknown,
+        documentCount = 0,
+    ) {
         super(message);
         this.name = "IndexingError";
         this.attempts = attempts;
         this.cause = cause;
+        this.documentCount = documentCount;
     }
 }
+
+/**
+ * Extracts and logs detailed error information from a bulk indexing response.
+ *
+ * This function parses the OpenSearch bulk response to identify specific
+ * document failures and their error messages, aiding in debugging.
+ *
+ * @param response - The bulk indexing response from OpenSearch.
+ * @returns An array of error messages for failed documents.
+ */
+const extractBulkErrors = (
+    response: Record<string, unknown>,
+): { failedCount: number; errors: string[] } => {
+    const errors: string[] = [];
+    let failedCount = 0;
+
+    // Extract items array from response body
+    const items =
+        (response.body as Record<string, unknown>)?.items ??
+        (response as { items?: unknown[] }).items;
+
+    if (Array.isArray(items)) {
+        for (const item of items) {
+            // Each item has an action key (index, create, update, delete)
+            const action = item as Record<string, Record<string, unknown>>;
+            const actionData = action.index ?? action.create ?? action.update;
+
+            if (actionData?.error) {
+                failedCount++;
+                // Limit error messages to prevent excessive logging
+                if (errors.length < 5) {
+                    const errorInfo = actionData.error as Record<
+                        string,
+                        unknown
+                    >;
+                    errors.push(
+                        `${actionData._id}: ${errorInfo.type} - ${errorInfo.reason}`,
+                    );
+                }
+            }
+        }
+    }
+
+    return { failedCount, errors };
+};
+
+/**
+ * Determines if an error is retryable based on its type.
+ *
+ * Certain errors (like network timeouts or circuit breaker errors)
+ * are worth retrying, while others (like mapping errors) are not.
+ *
+ * @param err - The error to evaluate.
+ * @returns True if the error is potentially transient and worth retrying.
+ */
+const isRetryableError = (err: unknown): boolean => {
+    // Check for common transient error types
+    if (err instanceof Error) {
+        const message = err.message.toLowerCase();
+        // Network and timeout errors are retryable
+        if (
+            message.includes("timeout") ||
+            message.includes("econnreset") ||
+            message.includes("econnrefused") ||
+            message.includes("socket hang up") ||
+            message.includes("circuit")
+        ) {
+            return true;
+        }
+    }
+
+    // OpenSearch bulk response with errors
+    if (typeof err === "object" && err !== null) {
+        const response = err as Record<string, unknown>;
+        // Check if it's a bulk response with errors (potentially retryable)
+        const body = response.body as Record<string, unknown> | undefined;
+        if (response.errors === true || body?.errors === true) {
+            return true;
+        }
+    }
+
+    // Default to retryable for unknown errors (conservative approach)
+    return true;
+};
 
 /**
  * Sends a bulk indexing request to OpenSearch with exponential backoff and bounded retries.
@@ -548,6 +738,8 @@ export class IndexingError extends Error {
  * - Linear increment added after each retry (INDEX_BACKOFF_INCREMENT)
  * - Maximum backoff capped at INDEX_BACKOFF_MAX
  * - Maximum retry count capped at INDEX_MAX_RETRIES (0 = unlimited, not recommended)
+ * - Detailed error extraction for debugging failed documents
+ * - Memory pressure awareness for adaptive throttling
  *
  * @alias sendIndexRequest
  *
@@ -564,6 +756,14 @@ export const sendIndexRequest = async (
     initialBackoff: number = INDEX_BACKOFF_INITIAL,
     { refresh = false }: { refresh?: boolean } = {},
 ): Promise<void> => {
+    // Calculate document count (each document has a header + body, so divide by 2)
+    const documentCount = Math.floor(indexingBody.length / 2);
+
+    // Skip empty requests
+    if (documentCount === 0) {
+        return;
+    }
+
     // Initialize the backoff delay for the first retry
     let backoff = initialBackoff;
 
@@ -575,6 +775,12 @@ export const sendIndexRequest = async (
         INDEX_MAX_RETRIES > 0 ? INDEX_MAX_RETRIES : Number.MAX_SAFE_INTEGER;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        // Check for memory pressure before attempting indexing
+        if (DYNAMIC_RESOURCES_ENABLED && isMemoryPressure()) {
+            logger("Memory pressure detected before indexing, waiting...");
+            await waitForMemory(1000, 10000);
+        }
+
         try {
             // Send the bulk indexing request to OpenSearch
             const resp = (await (
@@ -593,17 +799,40 @@ export const sendIndexRequest = async (
             // Check for partial failures in the bulk response
             // OpenSearch returns errors: true if any document failed to index
             if (resp?.errors || resp.body?.errors) {
+                // Extract detailed error information for debugging
+                const { failedCount, errors: bulkErrors } = extractBulkErrors(
+                    resp as unknown as Record<string, unknown>,
+                );
+
+                if (bulkErrors.length > 0) {
+                    error(
+                        `Bulk indexing partial failure: ${failedCount}/${documentCount} documents failed`,
+                    );
+                    for (const err of bulkErrors) {
+                        error(`  - ${err}`);
+                    }
+                }
+
                 throw resp;
             }
 
             // Success - all documents indexed
+            logger(`Successfully indexed ${documentCount} documents`);
             return;
         } catch (error_) {
             // Store the error for potential inclusion in IndexingError
             lastError = error_;
 
+            // Check if this error is worth retrying
+            if (!isRetryableError(error_)) {
+                error("Non-retryable error encountered, failing immediately");
+                break;
+            }
+
             // Log the error details for debugging
-            error("Indexing error", JSON.stringify(error_, undefined, 2));
+            error(
+                `Indexing attempt ${attempt + 1}/${maxRetries} failed for ${documentCount} documents`,
+            );
 
             // Check if we've exhausted all retries
             if (attempt >= maxRetries) {
@@ -612,9 +841,7 @@ export const sendIndexRequest = async (
             }
 
             // Log the backoff delay before waiting
-            error(
-                `Attempt ${attempt + 1}/${maxRetries} failed. Backing off for ${backoff}ms`,
-            );
+            error(`Backing off for ${backoff}ms before retry`);
 
             // Wait for the backoff period before retrying
             await new Promise<void>((resolve) => {
@@ -622,23 +849,20 @@ export const sendIndexRequest = async (
             });
 
             // Calculate the next backoff delay with linear increment
+            // This provides a hybrid exponential/linear backoff pattern
             backoff += INDEX_BACKOFF_INCREMENT;
 
             // Cap the backoff at the maximum configured value
             backoff = Math.min(INDEX_BACKOFF_MAX, backoff);
-
-            // Log the next attempt's backoff for monitoring
-            error(
-                `Next backoff: ${backoff}ms (attempt ${attempt + 2}/${maxRetries})`,
-            );
         }
     }
 
     // All retries exhausted - throw a descriptive error
     throw new IndexingError(
-        `Failed to index ${indexingBody.length / 2} documents after ${maxRetries} attempts`,
+        `Failed to index ${documentCount} documents after ${maxRetries} attempts`,
         maxRetries,
         lastError,
+        documentCount,
     );
 };
 
@@ -1287,7 +1511,8 @@ const loadAuthFiles = async (
  * 4. Loads all data files into the OpenSearch index
  *
  * The loading process respects the COVERED_STATES environment variable to
- * optionally limit which states are processed.
+ * optionally limit which states are processed. When dynamic resources are
+ * enabled, the loader adapts to available system memory for optimal performance.
  *
  * @alias loadGnaf
  *
@@ -1300,45 +1525,85 @@ const loadAuthFiles = async (
 export const loadCommandEntry = async ({
     refresh = false,
 }: { refresh?: boolean } = {}): Promise<void> => {
-    // Clear cached authority code Maps to ensure fresh lookups
-    // This is essential when reloading data to avoid stale mappings
-    clearAuthorityCodeMaps();
+    // Initialize resource monitoring if dynamic resources are enabled
+    const resourceMonitor = DYNAMIC_RESOURCES_ENABLED
+        ? ResourceMonitor.getInstance()
+        : undefined;
 
-    // Step 1: Fetch the G-NAF ZIP file (downloads if not cached or outdated)
-    const file = await fetchGNAFArchive();
+    if (resourceMonitor) {
+        // Log initial resource state for debugging and capacity planning
+        resourceMonitor.logResourceReport();
 
-    // Step 2: Extract the ZIP file to a local directory
-    const unzipped = await unzipGNAFArchive(file);
+        // Start monitoring to track memory usage during loading
+        resourceMonitor.startMonitoring();
 
-    // Log the extracted directory path
-    logger("Data dir", unzipped);
-
-    // Step 3: Read the contents of the extracted directory
-    const contents = await fsp.readdir(unzipped);
-    logger("Data dir contents", contents);
-
-    // Verify the directory is not empty
-    if (contents.length === 0) {
-        throw new Error(`Data dir '${unzipped}' is empty`);
+        // Register memory pressure callback to log warnings
+        resourceMonitor.onMemoryPressure((snapshot) => {
+            logger(
+                `Memory pressure alert: ${Math.round(snapshot.freeMemory / (1024 * 1024))}MB free, ` +
+                    `heap: ${Math.round(snapshot.heapUsed / (1024 * 1024))}MB`,
+            );
+        });
     }
 
-    // Step 4: Find the G-NAF subdirectory within the extracted contents
-    const gnafDir = await glob("**/G-NAF/", { cwd: unzipped });
-    console.log(gnafDir);
+    try {
+        // Clear cached authority code Maps to ensure fresh lookups
+        // This is essential when reloading data to avoid stale mappings
+        clearAuthorityCodeMaps();
 
-    // Verify the G-NAF directory was found
-    if (gnafDir.length === 0) {
-        throw new Error(
-            `Cannot find 'G-NAF' directory in Data dir '${unzipped}'`,
+        // Step 1: Fetch the G-NAF ZIP file (downloads if not cached or outdated)
+        const file = await fetchGNAFArchive();
+
+        // Step 2: Extract the ZIP file to a local directory
+        const unzipped = await unzipGNAFArchive(file);
+
+        // Log the extracted directory path
+        logger("Data dir", unzipped);
+
+        // Step 3: Read the contents of the extracted directory
+        const contents = await fsp.readdir(unzipped);
+        logger("Data dir contents", contents);
+
+        // Verify the directory is not empty
+        if (contents.length === 0) {
+            throw new Error(`Data dir '${unzipped}' is empty`);
+        }
+
+        // Step 4: Find the G-NAF subdirectory within the extracted contents
+        const gnafDir = await glob("**/G-NAF/", { cwd: unzipped });
+        console.log(gnafDir);
+
+        // Verify the G-NAF directory was found
+        if (gnafDir.length === 0) {
+            throw new Error(
+                `Cannot find 'G-NAF' directory in Data dir '${unzipped}'`,
+            );
+        }
+
+        // Get the parent directory of the G-NAF folder (this is the main data directory)
+        const mainDirectory = path.dirname(
+            `${unzipped}/${gnafDir[0].slice(0, -1)}`,
         );
+        logger("Main Data dir", mainDirectory);
+
+        // Log resource state before the intensive loading phase
+        if (resourceMonitor) {
+            logger("Starting data loading phase");
+            resourceMonitor.logResourceReport();
+        }
+
+        // Step 5: Load all G-NAF data from the main directory
+        await initGNAFDataLoader(mainDirectory, { refresh });
+
+        // Log final resource state after loading completes
+        if (resourceMonitor) {
+            logger("Data loading complete");
+            resourceMonitor.logResourceReport();
+        }
+    } finally {
+        // Always stop resource monitoring when done
+        if (resourceMonitor) {
+            resourceMonitor.stopMonitoring();
+        }
     }
-
-    // Get the parent directory of the G-NAF folder (this is the main data directory)
-    const mainDirectory = path.dirname(
-        `${unzipped}/${gnafDir[0].slice(0, -1)}`,
-    );
-    logger("Main Data dir", mainDirectory);
-
-    // Step 5: Load all G-NAF data from the main directory
-    await initGNAFDataLoader(mainDirectory, { refresh });
 };

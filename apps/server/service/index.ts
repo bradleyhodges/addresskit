@@ -13,7 +13,15 @@ import {
     MAX_PAGE_SIZE,
     PAGE_SIZE,
 } from "./conf";
-import { clearAddresses } from "./helpers";
+import { CACHE_ENABLED } from "./config";
+import {
+    clearAddresses,
+    generateSearchCacheKey,
+    getSearchCache,
+    getOpenSearchCircuit,
+    CircuitOpenError,
+    type CachedSearchResult,
+} from "./helpers";
 import { setLinkOptions } from "./setLinkOptions";
 import type * as Types from "./types/index";
 
@@ -147,6 +155,8 @@ const normalizeSearchString = (searchString: string | undefined): string =>
  *
  * This function performs a multi-match query against the SLA and SSLA fields
  * with both bool_prefix and phrase_prefix matching for optimal autocomplete behavior.
+ * Results are cached using an LRU cache for frequently accessed queries, and
+ * operations are protected by a circuit breaker to handle OpenSearch failures gracefully.
  *
  * @augments autoCompleteAddress - This function is part of the autocomplete functionality
  *
@@ -154,6 +164,7 @@ const normalizeSearchString = (searchString: string | undefined): string =>
  * @param p - The page number (1-indexed, will be validated and clamped).
  * @param pageSize - The page size (will be validated and clamped to MAX_PAGE_SIZE).
  * @returns A promise resolving to the OpenSearch search response with pagination metadata.
+ * @throws {CircuitOpenError} If OpenSearch circuit is open due to repeated failures.
  */
 const searchForAddress = async (
     searchString: string,
@@ -171,72 +182,119 @@ const searchForAddress = async (
     // Validate and clamp pagination parameters to prevent abuse
     const { validPage, validSize } = validatePaginationParams(p, pageSize);
 
+    // Generate cache key for this search query
+    const cacheKey = generateSearchCacheKey(
+        normalizedSearch,
+        validPage,
+        validSize,
+    );
+
+    // Check cache first if enabled
+    if (CACHE_ENABLED) {
+        const cached = getSearchCache().get(cacheKey);
+        if (cached !== undefined) {
+            logger("Cache HIT for search:", normalizedSearch);
+            // Return cached result wrapped in expected format
+            return {
+                searchResponse: {
+                    body: {
+                        hits: {
+                            hits: cached.results as Types.AddressSearchHit[],
+                            total: { value: cached.totalHits, relation: "eq" },
+                        },
+                    },
+                } as Types.OpensearchApiResponse<
+                    Types.OpensearchSearchResponse<unknown>,
+                    unknown
+                >,
+                page: cached.page,
+                size: cached.size,
+                totalHits: cached.totalHits,
+            };
+        }
+    }
+
     // Calculate the offset for OpenSearch (0-indexed)
     const from = (validPage - 1) * validSize;
 
-    // Search the index for the address
-    const searchResp = (await (
-        global.esClient as Types.OpensearchClient
-    ).search({
-        index: ES_INDEX_NAME,
-        body: {
-            from,
-            size: validSize,
-            // Limit payload to fields required by the response mapper
-            _source: ["sla"],
-            query: {
-                bool: {
-                    // If the search string is not empty, add the search string to the query using a multi match query to
-                    // search against the `sla` and `ssla` fields
-                    ...(normalizedSearch && {
-                        should: [
-                            {
-                                multi_match: {
-                                    fields: ["sla", "ssla"],
-                                    query: normalizedSearch,
-                                    // Fuzziness is set to AUTO to allow for typos and variations in the search string
-                                    fuzziness: "AUTO",
-                                    // Type is set to bool_prefix to allow for partial matching of the search string
-                                    type: "bool_prefix",
-                                    // Lenient is set to true to allow for partial matching of the search string
-                                    lenient: true,
-                                    // Auto generate synonyms phrase query is set to false to prevent the generation of synonyms phrase queries
-                                    auto_generate_synonyms_phrase_query: false,
-                                    operator: "AND",
+    // Execute search with circuit breaker protection
+    const circuit = getOpenSearchCircuit();
+
+    const searchResp = await circuit.execute(async () => {
+        // Search the index for the address
+        return (await (global.esClient as Types.OpensearchClient).search({
+            index: ES_INDEX_NAME,
+            body: {
+                from,
+                size: validSize,
+                // Limit payload to fields required by the response mapper
+                _source: ["sla"],
+                query: {
+                    bool: {
+                        // If the search string is not empty, add the search string to the query using a multi match query to
+                        // search against the `sla` and `ssla` fields
+                        ...(normalizedSearch && {
+                            should: [
+                                {
+                                    multi_match: {
+                                        fields: ["sla", "ssla"],
+                                        query: normalizedSearch,
+                                        // Fuzziness is set to AUTO to allow for typos and variations in the search string
+                                        fuzziness: "AUTO",
+                                        // Type is set to bool_prefix to allow for partial matching of the search string
+                                        type: "bool_prefix",
+                                        // Lenient is set to true to allow for partial matching of the search string
+                                        lenient: true,
+                                        // Auto generate synonyms phrase query is set to false to prevent the generation of synonyms phrase queries
+                                        auto_generate_synonyms_phrase_query: false,
+                                        operator: "AND",
+                                    },
                                 },
-                            },
-                            {
-                                multi_match: {
-                                    fields: ["sla", "ssla"],
-                                    query: normalizedSearch,
-                                    // Type is set to phrase_prefix to allow for partial matching of the search string
-                                    type: "phrase_prefix",
-                                    // Lenient is set to true to allow for partial matching of the search string
-                                    lenient: true,
-                                    // Auto generate synonyms phrase query is set to false to prevent the generation of synonyms phrase queries
-                                    auto_generate_synonyms_phrase_query: false,
-                                    operator: "AND",
+                                {
+                                    multi_match: {
+                                        fields: ["sla", "ssla"],
+                                        query: normalizedSearch,
+                                        // Type is set to phrase_prefix to allow for partial matching of the search string
+                                        type: "phrase_prefix",
+                                        // Lenient is set to true to allow for partial matching of the search string
+                                        lenient: true,
+                                        // Auto generate synonyms phrase query is set to false to prevent the generation of synonyms phrase queries
+                                        auto_generate_synonyms_phrase_query: false,
+                                        operator: "AND",
+                                    },
                                 },
-                            },
-                        ],
-                    }),
+                            ],
+                        }),
+                    },
                 },
+                sort: [
+                    "_score",
+                    { confidence: { order: "desc" } },
+                    { "ssla.raw": { order: "asc" } },
+                    { "sla.raw": { order: "asc" } },
+                ],
             },
-            sort: [
-                "_score",
-                { confidence: { order: "desc" } },
-                { "ssla.raw": { order: "asc" } },
-                { "sla.raw": { order: "asc" } },
-            ],
-        },
-    })) as Types.OpensearchApiResponse<
-        Types.OpensearchSearchResponse<unknown>,
-        unknown
-    >;
+        })) as Types.OpensearchApiResponse<
+            Types.OpensearchSearchResponse<unknown>,
+            unknown
+        >;
+    });
 
     // Extract the total hit count for pagination calculations
     const rawTotal = searchResp.body.hits.total;
     const totalHits = typeof rawTotal === "number" ? rawTotal : rawTotal.value;
+
+    // Cache the result if caching is enabled
+    if (CACHE_ENABLED) {
+        const cacheEntry: CachedSearchResult = {
+            results: searchResp.body.hits.hits,
+            totalHits: totalHits ?? 0,
+            page: validPage,
+            size: validSize,
+        };
+        getSearchCache().set(cacheKey, cacheEntry);
+        logger("Cache SET for search:", normalizedSearch);
+    }
 
     // Log the hits
     logger("hits", JSON.stringify(searchResp.body.hits, undefined, 2));
@@ -253,6 +311,7 @@ const searchForAddress = async (
  *
  * This function queries OpenSearch for the address document, constructs the
  * response with proper HATEOAS links, and generates an ETag hash for caching.
+ * Operations are protected by a circuit breaker to handle OpenSearch failures gracefully.
  *
  * @param {string} addressId - The unique identifier for the address (G-NAF PID).
  * @returns {Promise<Types.GetAddressResponse>} A promise resolving to either:
@@ -263,10 +322,16 @@ const getAddress = async (
     addressId: string,
 ): Promise<Types.GetAddressResponse> => {
     try {
+        // Get the circuit breaker for OpenSearch operations
+        const circuit = getOpenSearchCircuit();
+
         // Query OpenSearch for the address document by its canonical path ID
-        const jsonX = await (global.esClient as Types.OpensearchClient).get({
-            index: ES_INDEX_NAME,
-            id: `/addresses/${addressId}`,
+        // Protected by circuit breaker to prevent cascading failures
+        const jsonX = await circuit.execute(async () => {
+            return await (global.esClient as Types.OpensearchClient).get({
+                index: ES_INDEX_NAME,
+                id: `/addresses/${addressId}`,
+            });
         });
 
         logger("jsonX", jsonX);
@@ -289,15 +354,27 @@ const getAddress = async (
             uri: `/addresses/${addressId}`,
         });
 
-        // Generate MD5 hash of the address data for ETag/caching support
-        // TODO: Consider pre-computing and storing hash during indexing for performance
-        const hash = crypto
-            .createHash("md5")
-            .update(JSON.stringify(json))
-            .digest("hex");
+        // Use pre-computed hash from document if available, otherwise compute on-the-fly
+        // Pre-computed hashes are stored during indexing for better performance
+        const precomputedHash = jsonX.body._source.documentHash;
+        const hash =
+            precomputedHash ??
+            crypto.createHash("md5").update(JSON.stringify(json)).digest("hex");
 
         return { link, json, hash };
     } catch (error_: unknown) {
+        // Handle circuit breaker open state (503 - service temporarily unavailable)
+        if (error_ instanceof CircuitOpenError) {
+            error("Circuit breaker open for OpenSearch", error_);
+            return {
+                statusCode: 503,
+                json: {
+                    error: "service temporarily unavailable",
+                    retryAfter: Math.ceil(error_.retryAfterMs / 1000),
+                },
+            };
+        }
+
         // Cast to OpenSearch error type for proper error handling
         const osError = error_ as Types.OpensearchError;
         error("error getting record from elastic search", osError);
@@ -432,6 +509,18 @@ const getAddresses = async (
 
         return { link, json: responseBody, linkTemplate };
     } catch (error_: unknown) {
+        // Handle circuit breaker open state (503 - service temporarily unavailable)
+        if (error_ instanceof CircuitOpenError) {
+            error("Circuit breaker open for OpenSearch", error_);
+            return {
+                statusCode: 503,
+                json: {
+                    error: "service temporarily unavailable",
+                    retryAfter: Math.ceil(error_.retryAfterMs / 1000),
+                },
+            };
+        }
+
         // Cast to OpenSearch error type for proper error handling
         const osError = error_ as Types.OpensearchError;
         error("error querying elastic search", osError);
