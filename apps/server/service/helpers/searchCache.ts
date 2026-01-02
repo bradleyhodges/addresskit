@@ -1,0 +1,476 @@
+/**
+ * LRU (Least Recently Used) cache for address search/autocomplete results.
+ *
+ * This module provides in-memory caching for frequently accessed search queries
+ * to reduce load on OpenSearch and improve response times for common searches.
+ * The cache implements TTL (Time-To-Live) expiration and memory-aware eviction.
+ *
+ * @module searchCache
+ */
+
+import debug from "debug";
+
+// ---------------------------------------------------------------------------------
+// Debug Loggers
+// ---------------------------------------------------------------------------------
+
+/** Logger for cache operations */
+const logger = debug("api:cache");
+
+/** Logger for cache-related errors */
+const error = debug("error:cache");
+
+// ---------------------------------------------------------------------------------
+// Cache Configuration
+// ---------------------------------------------------------------------------------
+
+/**
+ * Default maximum number of entries in the cache.
+ * Balances memory usage with cache hit rate.
+ *
+ * @constant
+ */
+const DEFAULT_MAX_ENTRIES = 1000;
+
+/**
+ * Default TTL (Time-To-Live) for cache entries in milliseconds.
+ * Set to 5 minutes to balance freshness with performance.
+ *
+ * @constant
+ */
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Interval for running cache maintenance (eviction of expired entries).
+ *
+ * @constant
+ */
+const MAINTENANCE_INTERVAL_MS = 60 * 1000;
+
+// ---------------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------------
+
+/**
+ * A single entry in the cache with metadata for LRU and TTL management.
+ *
+ * @template T - The type of the cached value.
+ */
+type CacheEntry<T> = {
+    /** The cached value */
+    value: T;
+    /** Timestamp when this entry was created */
+    createdAt: number;
+    /** Timestamp when this entry was last accessed */
+    lastAccessedAt: number;
+    /** Number of times this entry has been accessed */
+    hitCount: number;
+};
+
+/**
+ * Statistics about cache performance.
+ */
+export type CacheStats = {
+    /** Total number of cache hits */
+    hits: number;
+    /** Total number of cache misses */
+    misses: number;
+    /** Current number of entries in the cache */
+    size: number;
+    /** Maximum number of entries allowed */
+    maxSize: number;
+    /** Cache hit rate as a percentage */
+    hitRate: number;
+    /** Number of entries evicted due to TTL */
+    ttlEvictions: number;
+    /** Number of entries evicted due to capacity */
+    lruEvictions: number;
+};
+
+/**
+ * Configuration options for the LRU cache.
+ */
+export type CacheConfig = {
+    /** Maximum number of entries to store */
+    maxEntries: number;
+    /** TTL for entries in milliseconds */
+    ttlMs: number;
+    /** Whether to run periodic maintenance */
+    enableMaintenance: boolean;
+};
+
+// ---------------------------------------------------------------------------------
+// LRU Cache Implementation
+// ---------------------------------------------------------------------------------
+
+/**
+ * Memory-efficient LRU cache with TTL support for search results.
+ *
+ * This cache uses a Map for O(1) lookups while maintaining insertion order
+ * for LRU eviction. Expired entries are cleaned up during access and via
+ * periodic maintenance.
+ *
+ * @template T - The type of values stored in the cache.
+ *
+ * @example
+ * ```typescript
+ * const cache = new LRUCache<SearchResult[]>({ maxEntries: 500, ttlMs: 60000 });
+ *
+ * // Store a result
+ * cache.set('sydney', searchResults);
+ *
+ * // Retrieve if present
+ * const cached = cache.get('sydney');
+ * if (cached !== undefined) {
+ *   return cached;
+ * }
+ *
+ * // Check stats
+ * console.log(cache.getStats());
+ * ```
+ */
+export class LRUCache<T> {
+    /** The underlying storage Map */
+    private cache: Map<string, CacheEntry<T>>;
+
+    /** Configuration for this cache instance */
+    private config: CacheConfig;
+
+    /** Statistics counters */
+    private stats = {
+        hits: 0,
+        misses: 0,
+        ttlEvictions: 0,
+        lruEvictions: 0,
+    };
+
+    /** Handle for the maintenance interval */
+    private maintenanceInterval: NodeJS.Timeout | undefined;
+
+    /**
+     * Creates a new LRU cache with the specified configuration.
+     *
+     * @param config - Partial configuration to override defaults.
+     */
+    constructor(config?: Partial<CacheConfig>) {
+        // Initialize the cache Map
+        this.cache = new Map();
+
+        // Merge provided config with defaults
+        this.config = {
+            maxEntries: config?.maxEntries ?? DEFAULT_MAX_ENTRIES,
+            ttlMs: config?.ttlMs ?? DEFAULT_TTL_MS,
+            enableMaintenance: config?.enableMaintenance ?? true,
+        };
+
+        // Start periodic maintenance if enabled
+        if (this.config.enableMaintenance) {
+            this.startMaintenance();
+        }
+
+        logger(
+            `LRU cache initialized: maxEntries=${this.config.maxEntries}, ttlMs=${this.config.ttlMs}`,
+        );
+    }
+
+    /**
+     * Retrieves a value from the cache if present and not expired.
+     *
+     * This operation updates the entry's last accessed time for LRU tracking.
+     *
+     * @param key - The cache key to look up.
+     * @returns The cached value, or undefined if not found or expired.
+     */
+    public get(key: string): T | undefined {
+        const entry = this.cache.get(key);
+
+        // Cache miss - entry not found
+        if (entry === undefined) {
+            this.stats.misses++;
+            logger(`Cache MISS: "${key.substring(0, 50)}..."`);
+            return undefined;
+        }
+
+        // Check if entry has expired
+        const now = Date.now();
+        if (now - entry.createdAt > this.config.ttlMs) {
+            // Entry expired - remove and count as miss
+            this.cache.delete(key);
+            this.stats.ttlEvictions++;
+            this.stats.misses++;
+            logger(`Cache EXPIRED: "${key.substring(0, 50)}..."`);
+            return undefined;
+        }
+
+        // Cache hit - update access metadata
+        entry.lastAccessedAt = now;
+        entry.hitCount++;
+        this.stats.hits++;
+
+        // Move to end of Map for LRU ordering (delete and re-add)
+        // This ensures recently accessed items are at the end
+        this.cache.delete(key);
+        this.cache.set(key, entry);
+
+        logger(
+            `Cache HIT: "${key.substring(0, 50)}..." (hits: ${entry.hitCount})`,
+        );
+        return entry.value;
+    }
+
+    /**
+     * Stores a value in the cache with the given key.
+     *
+     * If the cache is at capacity, the least recently used entry is evicted.
+     *
+     * @param key - The cache key to store under.
+     * @param value - The value to cache.
+     */
+    public set(key: string, value: T): void {
+        const now = Date.now();
+
+        // Check if we need to evict to make room
+        if (this.cache.size >= this.config.maxEntries) {
+            this.evictLRU();
+        }
+
+        // Create the cache entry
+        const entry: CacheEntry<T> = {
+            value,
+            createdAt: now,
+            lastAccessedAt: now,
+            hitCount: 0,
+        };
+
+        // Store in cache
+        this.cache.set(key, entry);
+        logger(`Cache SET: "${key.substring(0, 50)}..." (size: ${this.cache.size})`);
+    }
+
+    /**
+     * Checks if a key exists in the cache and is not expired.
+     *
+     * This is a non-mutating check that doesn't update access time.
+     *
+     * @param key - The cache key to check.
+     * @returns True if the key exists and is not expired.
+     */
+    public has(key: string): boolean {
+        const entry = this.cache.get(key);
+
+        if (entry === undefined) {
+            return false;
+        }
+
+        // Check expiration
+        if (Date.now() - entry.createdAt > this.config.ttlMs) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Removes a specific key from the cache.
+     *
+     * @param key - The cache key to remove.
+     * @returns True if the key was found and removed.
+     */
+    public delete(key: string): boolean {
+        const deleted = this.cache.delete(key);
+        if (deleted) {
+            logger(`Cache DELETE: "${key.substring(0, 50)}..."`);
+        }
+        return deleted;
+    }
+
+    /**
+     * Clears all entries from the cache.
+     */
+    public clear(): void {
+        const size = this.cache.size;
+        this.cache.clear();
+        logger(`Cache CLEAR: removed ${size} entries`);
+    }
+
+    /**
+     * Gets current cache statistics.
+     *
+     * @returns Statistics about cache performance and usage.
+     */
+    public getStats(): CacheStats {
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate = total > 0 ? (this.stats.hits / total) * 100 : 0;
+
+        return {
+            hits: this.stats.hits,
+            misses: this.stats.misses,
+            size: this.cache.size,
+            maxSize: this.config.maxEntries,
+            hitRate: Math.round(hitRate * 100) / 100,
+            ttlEvictions: this.stats.ttlEvictions,
+            lruEvictions: this.stats.lruEvictions,
+        };
+    }
+
+    /**
+     * Resets cache statistics counters.
+     */
+    public resetStats(): void {
+        this.stats = {
+            hits: 0,
+            misses: 0,
+            ttlEvictions: 0,
+            lruEvictions: 0,
+        };
+        logger("Cache stats reset");
+    }
+
+    /**
+     * Evicts the least recently used entry from the cache.
+     */
+    private evictLRU(): void {
+        // Map maintains insertion order, so the first key is the LRU
+        // (we move accessed items to the end in get())
+        const firstKey = this.cache.keys().next().value;
+
+        if (firstKey !== undefined) {
+            this.cache.delete(firstKey);
+            this.stats.lruEvictions++;
+            logger(`Cache LRU EVICT: "${String(firstKey).substring(0, 50)}..."`);
+        }
+    }
+
+    /**
+     * Runs maintenance to evict expired entries.
+     *
+     * This is called periodically to prevent memory leaks from
+     * entries that expire but are never accessed.
+     */
+    private runMaintenance(): void {
+        const now = Date.now();
+        let evicted = 0;
+
+        // Iterate through all entries and remove expired ones
+        for (const [key, entry] of this.cache) {
+            if (now - entry.createdAt > this.config.ttlMs) {
+                this.cache.delete(key);
+                this.stats.ttlEvictions++;
+                evicted++;
+            }
+        }
+
+        if (evicted > 0) {
+            logger(`Cache maintenance: evicted ${evicted} expired entries`);
+        }
+    }
+
+    /**
+     * Starts the periodic maintenance interval.
+     */
+    private startMaintenance(): void {
+        this.maintenanceInterval = setInterval(() => {
+            this.runMaintenance();
+        }, MAINTENANCE_INTERVAL_MS);
+
+        // Prevent interval from keeping the process alive
+        this.maintenanceInterval.unref();
+    }
+
+    /**
+     * Stops the periodic maintenance interval and cleans up.
+     */
+    public destroy(): void {
+        if (this.maintenanceInterval !== undefined) {
+            clearInterval(this.maintenanceInterval);
+            this.maintenanceInterval = undefined;
+        }
+
+        this.cache.clear();
+        logger("LRU cache destroyed");
+    }
+}
+
+// ---------------------------------------------------------------------------------
+// Singleton Search Cache Instance
+// ---------------------------------------------------------------------------------
+
+/**
+ * Type for cached search results.
+ */
+export type CachedSearchResult = {
+    /** The search response body */
+    results: unknown[];
+    /** Total number of hits for pagination */
+    totalHits: number;
+    /** Page number of this result */
+    page: number;
+    /** Page size used */
+    size: number;
+};
+
+/**
+ * Singleton cache instance for search results.
+ */
+let searchCacheInstance: LRUCache<CachedSearchResult> | undefined;
+
+/**
+ * Gets the singleton search cache instance.
+ *
+ * The cache is lazily initialized on first access with configuration
+ * from environment variables if available.
+ *
+ * @returns The singleton search cache instance.
+ */
+export const getSearchCache = (): LRUCache<CachedSearchResult> => {
+    if (searchCacheInstance === undefined) {
+        // Parse configuration from environment
+        const maxEntries = Number.parseInt(
+            process.env.ADDRESSKIT_CACHE_MAX_ENTRIES ?? "1000",
+            10,
+        );
+        const ttlMs = Number.parseInt(
+            process.env.ADDRESSKIT_CACHE_TTL_MS ?? "300000",
+            10,
+        );
+
+        searchCacheInstance = new LRUCache<CachedSearchResult>({
+            maxEntries,
+            ttlMs,
+        });
+    }
+
+    return searchCacheInstance;
+};
+
+/**
+ * Generates a cache key for a search query.
+ *
+ * The key includes the normalized query and pagination parameters
+ * to ensure different pages are cached separately.
+ *
+ * @param query - The normalized search query string.
+ * @param page - The page number (1-indexed).
+ * @param size - The page size.
+ * @returns A unique cache key for this search.
+ */
+export const generateSearchCacheKey = (
+    query: string,
+    page: number,
+    size: number,
+): string => {
+    // Normalize and lowercase for cache key consistency
+    const normalizedQuery = query.toLowerCase().trim();
+    return `search:${normalizedQuery}:p${page}:s${size}`;
+};
+
+/**
+ * Resets the singleton search cache (primarily for testing).
+ */
+export const resetSearchCache = (): void => {
+    if (searchCacheInstance !== undefined) {
+        searchCacheInstance.destroy();
+        searchCacheInstance = undefined;
+    }
+};
+

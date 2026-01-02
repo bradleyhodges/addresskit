@@ -181,7 +181,8 @@ export class ResourceMonitor {
                 config?.targetUtilization ?? TARGET_MEMORY_UTILIZATION,
             minChunkSizeMB: config?.minChunkSizeMB ?? MIN_CHUNK_SIZE_MB,
             maxChunkSizeMB: config?.maxChunkSizeMB ?? MAX_CHUNK_SIZE_MB,
-            checkIntervalMs: config?.checkIntervalMs ?? MEMORY_CHECK_INTERVAL_MS,
+            checkIntervalMs:
+                config?.checkIntervalMs ?? MEMORY_CHECK_INTERVAL_MS,
         };
 
         // Log initial resource state on creation
@@ -195,7 +196,9 @@ export class ResourceMonitor {
      * @param config - Optional configuration (only used on first call).
      * @returns The singleton ResourceMonitor instance.
      */
-    public static getInstance(config?: Partial<ResourceConfig>): ResourceMonitor {
+    public static getInstance(
+        config?: Partial<ResourceConfig>,
+    ): ResourceMonitor {
         // Create instance if it doesn't exist
         if (ResourceMonitor.instance === undefined) {
             ResourceMonitor.instance = new ResourceMonitor(config);
@@ -300,7 +303,8 @@ export class ResourceMonitor {
         const MEMORY_PER_OPERATION_MB = 200;
         const availableMB = snapshot.freeMemory / (1024 * 1024);
         const memoryBasedConcurrency = Math.floor(
-            (availableMB * this.config.targetUtilization) / MEMORY_PER_OPERATION_MB,
+            (availableMB * this.config.targetUtilization) /
+                MEMORY_PER_OPERATION_MB,
         );
 
         // Return the minimum of CPU and memory constraints
@@ -520,4 +524,3 @@ export const waitForMemory = async (
         );
     }
 };
-
