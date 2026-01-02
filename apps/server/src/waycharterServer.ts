@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { WayCharter } from "@mountainpass/waycharter";
 import { version } from "@repo/addresskit-core/version";
 import debug from "debug";
-import * as express from "express";
+import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { load as loadYaml } from "js-yaml";
 import * as swaggerUi from "swagger-ui-express";

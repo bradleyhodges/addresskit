@@ -5,8 +5,8 @@
  * for a delightful user experience during CLI operations.
  */
 
-import * as chalk from "chalk";
-import * as ora from "ora";
+import chalk from "chalk";
+import ora from "ora";
 
 // ---------------------------------------------------------------------------------
 // Theme Configuration

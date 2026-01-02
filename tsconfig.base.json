@@ -10,6 +10,8 @@
         "allowJs": true,
         "noEmit": true,
         "types": ["node"],
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true
     }
 }

@@ -3,8 +3,8 @@ import * as fs from "node:fs";
 import { Agent as HttpsAgent } from "node:https";
 import debug from "debug";
 import * as got from "got";
-import * as LinkHeader from "http-link-header";
-import * as Keyv from "keyv";
+import LinkHeader from "http-link-header";
+import Keyv from "keyv";
 import { KeyvFile } from "keyv-file";
 import { loadCommandEntry, sendIndexRequest } from "./commands/load";
 import {

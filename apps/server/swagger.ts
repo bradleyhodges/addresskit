@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { type Server, createServer } from "node:http";
 import * as path from "node:path";
 import debug from "debug";
-import * as express from "express";
+import express from "express";
 import type { Express, NextFunction, Request, Response } from "express";
 import { load } from "js-yaml";
 import { initializeMiddleware } from "swagger-tools";
@@ -168,7 +168,7 @@ let server: Server | undefined;
  */
 export function startServer(): Promise<string> {
     // Use the CORS middleware
-    app.use((request, response, next) => {
+    app.use((request: Request, response: Response, next: NextFunction) => {
         // If the ACCESS_CONTROL_ALLOW_ORIGIN environment variable is set, add the Access-Control-Allow-Origin header
         if (process.env.ADDRESSKIT_ACCESS_CONTROL_ALLOW_ORIGIN !== undefined) {
             response.append(
