@@ -171,6 +171,9 @@ importers:
       swagger-tools:
         specifier: ^0.10.4
         version: 0.10.4
+      swagger-ui-express:
+        specifier: ^5.0.1
+        version: 5.0.1(express@4.22.1)
       unzip-stream:
         specifier: ^0.3.4
         version: 0.3.4
@@ -208,6 +211,9 @@ importers:
       '@types/swagger-tools':
         specifier: ^0.10.10
         version: 0.10.10
+      '@types/swagger-ui-express':
+        specifier: ^4.1.8
+        version: 4.1.8
       '@types/unzip-stream':
         specifier: ^0.3.4
         version: 0.3.4
@@ -552,6 +558,9 @@ packages:
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
 
+  '@scarf/scarf@1.4.0':
+    resolution: {integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==}
+
   '@sindresorhus/is@0.14.0':
     resolution: {integrity: sha512-9NET910DNaIPngYnLLPeg+Ogzqsi9uM4mSboU5y6p8S5DzMTVEsJZrawi+BoDNUVBa2DhJqQYUFvMDfgU062LQ==}
     engines: {node: '>=6'}
@@ -661,6 +670,9 @@ packages:
 
   '@types/swagger-tools@0.10.10':
     resolution: {integrity: sha512-G9Tl3WGv5d0EE9IINQ0SG3VNDbFe92dWwm39Ar3XG+lHi/9WE/YwcxB1onklcZKu+9ugFh6HU8Edk4aG0uqY8g==}
+
+  '@types/swagger-ui-express@4.1.8':
+    resolution: {integrity: sha512-AhZV8/EIreHFmBV5wAs0gzJUNq9JbbSXgJLQubCC0jtIo6prnI9MIRRxnU4MZX9RB9yXxF1V4R7jtLl/Wcj31g==}
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
@@ -3872,6 +3884,15 @@ packages:
     resolution: {integrity: sha512-VQpijIi8cpB/frUZOZlVpS7U3CrdSAZBfiHu448R1njiNXUnE7heF3Svz3qFBr5SYtaPvaqWpHMbvboirCXVzA==}
     hasBin: true
 
+  swagger-ui-dist@5.31.0:
+    resolution: {integrity: sha512-zSUTIck02fSga6rc0RZP3b7J7wgHXwLea8ZjgLA3Vgnb8QeOl3Wou2/j5QkzSGeoz6HusP/coYuJl33aQxQZpg==}
+
+  swagger-ui-express@5.0.1:
+    resolution: {integrity: sha512-SrNU3RiBGTLLmFU8GIJdOdanJTl4TOmT27tt3bWWHppqYmAZ6IDuEuBvMU6nZq0zLEe6b/1rACXCgLZqO6ZfrA==}
+    engines: {node: '>= v0.10.32'}
+    peerDependencies:
+      express: '>=4.0.0 || >=5.0.0-beta'
+
   table@6.9.0:
     resolution: {integrity: sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A==}
     engines: {node: '>=10.0.0'}
@@ -4710,6 +4731,8 @@ snapshots:
 
   '@rtsao/scc@1.1.0': {}
 
+  '@scarf/scarf@1.4.0': {}
+
   '@sindresorhus/is@0.14.0': {}
 
   '@szmarczak/http-timer@1.1.2':
@@ -4841,6 +4864,11 @@ snapshots:
   '@types/swagger-tools@0.10.10':
     dependencies:
       '@types/connect': 3.4.38
+
+  '@types/swagger-ui-express@4.1.8':
+    dependencies:
+      '@types/express': 5.0.6
+      '@types/serve-static': 2.2.0
 
   '@types/tough-cookie@4.0.5': {}
 
@@ -8780,6 +8808,15 @@ snapshots:
       z-schema: 3.25.1
     transitivePeerDependencies:
       - supports-color
+
+  swagger-ui-dist@5.31.0:
+    dependencies:
+      '@scarf/scarf': 1.4.0
+
+  swagger-ui-express@5.0.1(express@4.22.1):
+    dependencies:
+      express: 4.22.1
+      swagger-ui-dist: 5.31.0
 
   table@6.9.0:
     dependencies:

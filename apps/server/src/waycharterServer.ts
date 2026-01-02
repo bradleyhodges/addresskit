@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { type Server, createServer } from "node:http";
+import * as path from "node:path";
 import { WayCharter } from "@mountainpass/waycharter";
 import { version } from "@repo/addresskit-core/version";
 import debug from "debug";
 import * as express from "express";
 import type { NextFunction, Request, Response } from "express";
+import { load as loadYaml } from "js-yaml";
+import * as swaggerUi from "swagger-ui-express";
 import { getAddress, searchForAddress } from "../service";
 import { VERBOSE } from "../service/config";
 
@@ -27,24 +31,29 @@ type AddressSearchHit = {
         sla: string;
         ssla?: string;
     };
-    highlight: {
-        sla: string[];
+    highlight?: {
+        sla?: string[];
         ssla?: string[];
     };
 };
 
 /**
- * The address search response.
+ * The search result returned by searchForAddress.
  */
-type AddressSearchResponse = {
-    body: {
-        hits: {
-            hits: AddressSearchHit[];
-            total: {
-                value: number;
+type SearchForAddressResult = {
+    searchResponse: {
+        body: {
+            hits: {
+                hits: AddressSearchHit[];
+                total: {
+                    value: number;
+                };
             };
         };
     };
+    page: number;
+    size: number;
+    totalHits: number;
 };
 
 /**
@@ -141,13 +150,16 @@ function appendCorsHeaders(
  * @returns {AddressCollectionBody} Normalized address payload for clients.
  */
 function mapSearchHitToAddress(hit: AddressSearchHit): AddressCollectionBody {
-    // Use the first highlight snippet for each field to keep payloads small
+    // Use the first highlight snippet for each field if available, otherwise fall back to source
+    const highlightSla = hit.highlight?.sla?.[0] ?? hit._source.sla;
+    const highlightSsla = hit.highlight?.ssla?.[0] ?? hit._source.ssla;
+
     return {
         sla: hit._source.sla,
         ...(hit._source.ssla && { ssla: hit._source.ssla }),
         highlight: {
-            sla: hit.highlight.sla[0],
-            ...(hit.highlight.ssla && { ssla: hit.highlight.ssla[0] }),
+            sla: highlightSla,
+            ...(highlightSsla && { ssla: highlightSsla }),
         },
         score: hit._score,
         pid: hit._id.replace("/addresses/", ""),
@@ -194,14 +206,13 @@ async function loadAddressItem({ pid }: AddressLoaderParams): Promise<{
  * @returns {Promise<{ body: AddressCollectionBody[]; hasMore: boolean; headers: Record<string, string>; }>} Collection response with cache headers.
  * @throws {Error} When the provided page value cannot be parsed as a number.
  */
-async function loadAddressCollection({
-    page,
-    q,
-}: AddressCollectionParams): Promise<{
+async function loadAddressCollection(params: AddressCollectionParams): Promise<{
     body: AddressCollectionBody[];
     hasMore: boolean;
     headers: Record<string, string>;
 }> {
+    const { page, q } = params;
+
     // Accept numeric strings from query params while rejecting non-numeric input.
     const resolvedPage = Number(page ?? 0);
     if (!Number.isFinite(resolvedPage)) {
@@ -210,15 +221,25 @@ async function loadAddressCollection({
 
     // If the query is defined and longer than 2 characters, search for addresses.
     if (q && q.length > 2) {
+        logger("Searching for addresses with query:", q);
         // Query length guard prevents expensive searches on very short strings.
-        const foundAddresses = (await searchForAddress(
+        const searchResult = (await searchForAddress(
             q,
             resolvedPage + 1,
             pageSize,
-        )) as unknown as AddressSearchResponse;
+        )) as unknown as SearchForAddressResult;
+
+        logger("Search result totalHits:", searchResult.totalHits);
+        logger(
+            "Search response structure:",
+            JSON.stringify(Object.keys(searchResult)),
+        );
+
+        // Extract hits from the nested searchResponse structure
+        const hits = searchResult.searchResponse.body.hits.hits;
 
         // Map the search hits to the address collection body.
-        const body = foundAddresses.body.hits.hits.map(mapSearchHitToAddress);
+        const body = hits.map(mapSearchHitToAddress);
 
         // Create a hash of the body to use as the ETag.
         const responseHash = createHash("md5")
@@ -228,9 +249,7 @@ async function loadAddressCollection({
         // Return the address collection body, hasMore, and headers.
         return {
             body,
-            hasMore:
-                resolvedPage <
-                foundAddresses.body.hits.total.value / pageSize - 1,
+            hasMore: resolvedPage < searchResult.totalHits / pageSize - 1,
             headers: {
                 etag: `"${version}-${responseHash}"`,
                 "cache-control": `public, max-age=${ONE_WEEK}`,
@@ -259,6 +278,23 @@ export async function startRest2Server(): Promise<string> {
     // Use the CORS middleware
     app.use(appendCorsHeaders);
 
+    // Load and serve OpenAPI/Swagger documentation at /docs
+    const swaggerSpecPath = path.join(__dirname, "../api/swagger.yaml");
+    const swaggerSpec = loadYaml(
+        readFileSync(swaggerSpecPath, "utf8"),
+    ) as swaggerUi.JsonObject;
+    // Cast through unknown to resolve express type version conflicts
+    app.use(
+        "/docs",
+        swaggerUi.serve as unknown as express.RequestHandler[],
+        swaggerUi.setup(swaggerSpec) as unknown as express.RequestHandler,
+    );
+
+    // Serve the raw OpenAPI spec as JSON at /api-docs
+    app.get("/api-docs", (_req: Request, res: Response) => {
+        res.json(swaggerSpec);
+    });
+
     // WayCharter provides hypermedia routing; attach its router before custom handlers.
     // Create a new WayCharter instance
     const waycharter = new WayCharter();
@@ -270,12 +306,12 @@ export async function startRest2Server(): Promise<string> {
         itemLoader: loadAddressItem,
         collectionPath: "/addresses",
         collectionLoader: loadAddressCollection,
-        // filters: [
-        //     {
-        //         rel: "https://addressr.io/rels/address-search",
-        //         parameters: ["q"],
-        //     },
-        // ],
+        filters: [
+            {
+                rel: "https://addressr.io/rels/address-search",
+                parameters: ["q"],
+            },
+        ],
     });
 
     /**
