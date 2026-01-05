@@ -13,6 +13,11 @@ import * as Papa from "papaparse";
 import * as unzip from "unzip-stream";
 import {
     COVERED_STATES,
+    DOWNLOAD_BACKOFF_INITIAL,
+    DOWNLOAD_BACKOFF_MAX,
+    DOWNLOAD_CONNECT_TIMEOUT,
+    DOWNLOAD_MAX_RETRIES,
+    DOWNLOAD_SOCKET_TIMEOUT,
     ENABLE_GEO,
     ES_CLEAR_INDEX,
     ES_INDEX_NAME,
@@ -251,12 +256,36 @@ const fetchGNAFArchive = async (): Promise<string> => {
         const downloadStartTime = Date.now();
 
         try {
-            // Download the GNAF file with progress callback and resume support
+            // Download the GNAF file with progress callback, resume support, and retry logic
             await download({
                 url: dataResource.url,
                 destinationPath: incompleteFile,
                 expectedSize: dataResource.size,
                 enableResume: true,
+                // Retry configuration for handling transient network errors (ECONNRESET, etc.)
+                retry: {
+                    maxRetries: DOWNLOAD_MAX_RETRIES,
+                    initialBackoff: DOWNLOAD_BACKOFF_INITIAL,
+                    maxBackoff: DOWNLOAD_BACKOFF_MAX,
+                    backoffMultiplier: 2,
+                    onRetry: (attempt, err, nextDelayMs) => {
+                        // Log retry information to help with debugging
+                        const errCode =
+                            (err as Error & { code?: string }).code ??
+                            "UNKNOWN";
+                        logWarning(
+                            `Download interrupted (${errCode}). Retry ${attempt}/${DOWNLOAD_MAX_RETRIES} in ${formatDuration(nextDelayMs)}...`,
+                        );
+                        updateSpinner(
+                            `Retrying download (attempt ${attempt + 1}/${DOWNLOAD_MAX_RETRIES + 1})...`,
+                        );
+                    },
+                },
+                // Timeout configuration to prevent indefinite hangs
+                timeout: {
+                    socketTimeout: DOWNLOAD_SOCKET_TIMEOUT,
+                    connectTimeout: DOWNLOAD_CONNECT_TIMEOUT,
+                },
                 onIncompleteDetected: (existing, expected) => {
                     isResuming = true;
                     if (VERBOSE)
@@ -286,9 +315,15 @@ const fetchGNAFArchive = async (): Promise<string> => {
                         ? theme.secondary(" (resumed)")
                         : "";
 
+                    // Show retry indicator if retrying
+                    const retryIndicator =
+                        progress.retryAttempt && progress.retryAttempt > 0
+                            ? theme.warning(` [retry ${progress.retryAttempt}]`)
+                            : "";
+
                     // Update spinner text with beautiful progress info
                     updateSpinner(
-                        `Downloading G-NAF${resumeIndicator}  ${progressBar}  ${theme.muted(`${downloaded} / ${total}`)}  ${theme.secondary(`${speed}/s`)}  ${theme.dim(`ETA: ${eta}`)}`,
+                        `Downloading G-NAF${resumeIndicator}${retryIndicator}  ${progressBar}  ${theme.muted(`${downloaded} / ${total}`)}  ${theme.secondary(`${speed}/s`)}  ${theme.dim(`ETA: ${eta}`)}`,
                     );
                 },
             });

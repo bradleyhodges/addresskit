@@ -321,6 +321,69 @@ export const CIRCUIT_SUCCESS_THRESHOLD = Number.parseInt(
 );
 
 // ---------------------------------------------------------------------------------
+// Download Configuration
+// ---------------------------------------------------------------------------------
+
+/**
+ * Maximum number of retry attempts for failed G-NAF downloads.
+ * Network errors (ECONNRESET, timeout) will trigger automatic retries.
+ *
+ * @default 5
+ * @env ADDRESSKIT_DOWNLOAD_MAX_RETRIES
+ */
+export const DOWNLOAD_MAX_RETRIES = Number.parseInt(
+    process.env.ADDRESSKIT_DOWNLOAD_MAX_RETRIES ?? "5",
+    10,
+);
+
+/**
+ * Initial backoff delay in milliseconds before retrying failed downloads.
+ * Used as the base delay for exponential backoff.
+ *
+ * @default 5000 (5 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_BACKOFF_INITIAL
+ */
+export const DOWNLOAD_BACKOFF_INITIAL = Number.parseInt(
+    process.env.ADDRESSKIT_DOWNLOAD_BACKOFF_INITIAL ?? "5000",
+    10,
+);
+
+/**
+ * Maximum backoff delay in milliseconds between download retries.
+ * Prevents backoff from growing indefinitely.
+ *
+ * @default 60000 (1 minute)
+ * @env ADDRESSKIT_DOWNLOAD_BACKOFF_MAX
+ */
+export const DOWNLOAD_BACKOFF_MAX = Number.parseInt(
+    process.env.ADDRESSKIT_DOWNLOAD_BACKOFF_MAX ?? "60000",
+    10,
+);
+
+/**
+ * Socket timeout in milliseconds for download connections.
+ * If no data is received for this duration, the connection is reset.
+ *
+ * @default 30000 (30 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_SOCKET_TIMEOUT
+ */
+export const DOWNLOAD_SOCKET_TIMEOUT = Number.parseInt(
+    process.env.ADDRESSKIT_DOWNLOAD_SOCKET_TIMEOUT ?? "30000",
+    10,
+);
+
+/**
+ * Connection timeout in milliseconds for establishing download connections.
+ *
+ * @default 30000 (30 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_CONNECT_TIMEOUT
+ */
+export const DOWNLOAD_CONNECT_TIMEOUT = Number.parseInt(
+    process.env.ADDRESSKIT_DOWNLOAD_CONNECT_TIMEOUT ?? "30000",
+    10,
+);
+
+// ---------------------------------------------------------------------------------
 // Resource Management Configuration
 // ---------------------------------------------------------------------------------
 

@@ -401,7 +401,7 @@ const stateColors: Record<string, chalk.Chalk> = {
     TAS: chalk.hex("#005F45"),
     ACT: chalk.hex("#003366"),
     NT: chalk.hex("#8B4513"),
-    OT: chalk.hex("#723480"),
+    OT: chalk.hex("#808080"),
 };
 
 /**
