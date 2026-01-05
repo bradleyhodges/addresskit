@@ -39,7 +39,7 @@ var version;
 var init_version = __esm({
   "packages/core/version.ts"() {
     "use strict";
-    version = "2.4.1";
+    version = "2.4.2";
   }
 });
 
