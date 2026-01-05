@@ -87,7 +87,7 @@ function logSection(title) {
  * @param {string} cmd - The command to execute.
  * @param {Object} [options] - Execution options.
  * @param {boolean} [options.silent] - Suppress stdout.
- * @returns {{success: boolean, output: string, error: Error|null}} Result object.
+ * @returns {{success: boolean, output: string, error: Error|null, stderr: string}} Result object.
  */
 function exec(cmd, options = {}) {
     const { silent = false } = options;
@@ -96,7 +96,7 @@ function exec(cmd, options = {}) {
 
     if (args.dryRun) {
         log("⏭", "(dry run - skipped)", colors.yellow);
-        return { success: true, output: "", error: null };
+        return { success: true, output: "", error: null, stderr: "" };
     }
 
     try {
@@ -105,9 +105,11 @@ function exec(cmd, options = {}) {
             stdio: silent ? "pipe" : "inherit",
             cwd: projectRoot,
         });
-        return { success: true, output: output || "", error: null };
+        return { success: true, output: output || "", error: null, stderr: "" };
     } catch (error) {
-        return { success: false, output: "", error };
+        // Capture stderr for error detection even when stdio is inherit
+        const stderr = error.stderr || error.message || "";
+        return { success: false, output: error.stdout || "", error, stderr };
     }
 }
 
@@ -366,14 +368,16 @@ async function release() {
     if (!args.skipNpm) {
         logSection("Publishing to npm");
         log("📤", "Publishing to npmjs.com...", colors.blue);
-        const npmResult = exec(`npm publish ${tarballName} --access public`);
+        const npmResult = exec(`npm publish ${tarballName} --access public --registry=https://registry.npmjs.org`);
         if (npmResult.success) {
             results.npm = { status: "success", message: "" };
             log("✓", "Published to npm", colors.green);
         } else {
+            const errorText = `${npmResult.error?.message || ""} ${npmResult.stderr || ""}`;
             const isAlreadyPublished =
-                npmResult.error?.message?.includes("previously published") ||
-                npmResult.error?.message?.includes("cannot publish over");
+                errorText.includes("previously published") ||
+                errorText.includes("cannot publish over") ||
+                errorText.includes("You cannot publish over");
             results.npm = {
                 status: "failed",
                 message: isAlreadyPublished
@@ -404,9 +408,11 @@ async function release() {
             results.github = { status: "success", message: "" };
             log("✓", "Published to GitHub Packages", colors.green);
         } else {
+            const errorText = `${githubResult.error?.message || ""} ${githubResult.stderr || ""}`;
             const isAlreadyPublished =
-                githubResult.error?.message?.includes("previously published") ||
-                githubResult.error?.message?.includes("cannot publish over");
+                errorText.includes("previously published") ||
+                errorText.includes("cannot publish over") ||
+                errorText.includes("You cannot publish over");
             results.github = {
                 status: "failed",
                 message: isAlreadyPublished
