@@ -73,45 +73,52 @@ The fastest way to get AddressKit running. No installation required - just good 
 ```yaml
 services:
   opensearch:
-    image: opensearchproject/opensearch:1.3.2
+    image: opensearchproject/opensearch:1.3.20
     environment:
       - discovery.type=single-node
       - plugins.security.disabled=true
       - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
     ports:
-      - "9200:9200" # This is the port that OpenSearch will listen on for requests from AddressKit
+      - "9200:9200"
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/ >/dev/null || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 40
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
     restart: unless-stopped
 
   api:
     image: bradleyhodges/addresskit:latest
     environment:
       - ELASTIC_HOST=opensearch
-      - ELASTIC_PORT=9200 # This tells AddressKit to connect to OpenSearch on port 9200 (see above)
-      - PORT=8080 # This is the port that the AddressKit REST API will listen on
+      - ELASTIC_PORT=9200
+      - PORT=8080
     ports:
-      - "8080:8080" # This is the port that AddressKit will listen on for requests from your application
+      - "8080:8080"
     depends_on:
       opensearch:
         condition: service_healthy
     command: ["addresskit", "start", "--daemon"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/addresses?q=test >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   loader:
     image: bradleyhodges/addresskit:latest
+    profiles:
+      - loader
     environment:
       - ELASTIC_HOST=opensearch
       - ELASTIC_PORT=9200
-      # Uncomment to load specific states only (faster)
-      # - COVERED_STATES=NSW,VIC
-      # Uncomment to enable geocoding (requires more memory)
-      # - ADDRESSKIT_ENABLE_GEO=1
+      - COVERED_STATES=${COVERED_STATES:-ACT}
+      # - ADDRESSKIT_ENABLE_GEO=true  # Uncomment to enable geocoding
     volumes:
       - gnaf-data:/home/node/gnaf
     depends_on:
@@ -120,28 +127,49 @@ services:
     command: ["addresskit", "load"]
     restart: "no"
 
+  # Optional: OpenSearch Dashboards for monitoring
+  dashboards:
+    image: opensearchproject/opensearch-dashboards:1.3.20
+    profiles:
+      - monitoring
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   opensearch-data:
   gnaf-data:
 ```
 
-#### 2. Start OpenSearch and the AddressKit REST API server by running:
+#### 2. Start OpenSearch and the AddressKit REST API server:
 
 ```bash
-docker compose up -d opensearch api
+docker compose up -d
 ```
 
-#### 3. Load the G-NAF address data into the search index by running (this will take a while, depending on your internet connection and system performance):
+#### 3. Load the G-NAF address data into the search index (first time only):
 
 ```bash
-# Load all Australian addresses (generally takes ~20-40 minutes)
-docker compose run --rm loader
+docker compose --profile loader run --rm loader
 ```
 
 > [!TIP] 
-> To load only specific states (faster), edit the `COVERED_STATES` environment variable in the compose file before running.
+> By default, only ACT is loaded for quick testing. To load specific states, set the `COVERED_STATES` environment variable:
+> ```bash
+> COVERED_STATES=NSW,VIC,QLD docker compose --profile loader run --rm loader
+> ```
+> Or to load all states (takes longer, requires more disk space):
+> ```bash
+> COVERED_STATES= docker compose --profile loader run --rm loader
+> ```
 
-#### 4. Once the G-NAF address data has been loaded, you can test the API by searching for addresses (autocomplete) by running:
+#### 4. Test the API by searching for addresses:
 
 ```bash
 # Search for addresses (autocomplete)
@@ -155,13 +183,45 @@ curl -H "Accept: application/vnd.api+json" \
 
 The API returns JSON:API compliant responses. See [API Endpoints](#api-endpoints) for detailed examples.
 
+#### 5. Optional: Enable monitoring dashboard
+
+```bash
+docker compose --profile monitoring up -d
+```
+
+Access the OpenSearch Dashboards at http://localhost:5601 to monitor your index and search performance.
+
 ### Docker Compose Services
 
-| Service | Description | Default Port |
-|---------|-------------|------|
-| `opensearch` | Search backend | 9200 |
-| `api` | REST API server | 8080 |
-| `loader` | G-NAF data loader (run once) | - |
+| Service | Description | Default Port | Profile |
+|---------|-------------|--------------|---------|
+| `opensearch` | Search backend | 9200 | default |
+| `api` | REST API server | 8080 | default |
+| `loader` | G-NAF data loader | - | `loader` |
+| `dashboards` | OpenSearch Dashboards | 5601 | `monitoring` |
+
+### Configuration
+
+For production deployments or advanced configuration, create a `.env` file alongside your `docker-compose.yml`:
+
+```env
+# States to load (comma-separated: ACT,NSW,VIC,QLD,SA,WA,TAS,NT)
+COVERED_STATES=NSW,VIC
+
+# Enable geocoding (latitude/longitude)
+ADDRESSKIT_ENABLE_GEO=true
+
+# OpenSearch memory (adjust based on available RAM)
+OPENSEARCH_HEAP=2g
+
+# API server port
+API_PORT=8080
+
+# CORS origin (set to your domain in production)
+CORS_ORIGIN=https://example.com
+```
+
+See [Environment Variables](#environment-variables) for all available options.
 
 ## Using npm
 
@@ -183,13 +243,14 @@ After installation, the `addresskit` command will be available globally in your 
 addresskit --version
 ```
 
-#### 3. AddressKit requires OpenSearch (the search and indexing backend used by AddressKit) to be running - this is provided by the AddressKit Docker image. If you don't already have an OpenSearch instance running, you can start one by running:
+#### 3. AddressKit requires OpenSearch as its search and indexing backend. If you don't already have an OpenSearch instance running, start one with Docker:
 
 ```bash
-docker pull opensearchproject/opensearch:1.3.20
-docker run -p 9200:9200 -p 9300:9300 \
+docker run -d --name opensearch \
+  -p 9200:9200 -p 9300:9300 \
   -e "discovery.type=single-node" \
   -e "plugins.security.disabled=true" \
+  -e "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g" \
   opensearchproject/opensearch:1.3.20
 ```
 
@@ -384,6 +445,8 @@ addresskit version
 ---
 # Environment Variables
 
+### Core Settings
+
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
 | `ELASTIC_HOST` | OpenSearch host | `localhost` |
@@ -393,16 +456,54 @@ addresskit version
 | `ELASTIC_PASSWORD` | OpenSearch password (optional) | |
 | `PORT` | API server port | `8080` |
 | `ES_INDEX_NAME` | OpenSearch index name | `addresskit` |
-| `COVERED_STATES` | Comma-separated list of states to load | All states |
-| `ADDRESSKIT_ENABLE_GEO` | Enable geocoding (`1` to enable) | Disabled |
+| `NODE_ENV` | Environment (`production` or `development`) | `production` |
+
+### Data Loading
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `COVERED_STATES` | Comma-separated list of states to load (ACT,NSW,VIC,QLD,SA,WA,TAS,NT) | All states |
+| `ADDRESSKIT_ENABLE_GEO` | Enable geocoding (`true` or `1` to enable) | Disabled |
+| `ES_CLEAR_INDEX` | Clear index before loading | `false` |
+| `GNAF_DIR` | Directory for G-NAF data cache | `/home/node/gnaf` |
+
+### Performance & Caching
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
 | `PAGE_SIZE` | Default results per page | `8` |
-| `ADDRESSKIT_ACCESS_CONTROL_ALLOW_ORIGIN` | CORS allowed origin | |
+| `ADDRESSKIT_CACHE_ENABLED` | Enable response caching | `true` |
+| `ADDRESSKIT_CACHE_MAX_ENTRIES` | Maximum cached entries | `1000` |
+| `ADDRESSKIT_CACHE_TTL_MS` | Cache TTL in milliseconds | `300000` (5 min) |
+| `ADDRESSKIT_DYNAMIC_RESOURCES` | Enable dynamic resource management | `true` |
+| `ADDRESSKIT_TARGET_MEMORY_UTILIZATION` | Target memory usage ratio | `0.7` |
+
+### CORS Configuration
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `ADDRESSKIT_ACCESS_CONTROL_ALLOW_ORIGIN` | CORS allowed origin | `*` |
 | `ADDRESSKIT_ACCESS_CONTROL_EXPOSE_HEADERS` | CORS exposed headers | |
 | `ADDRESSKIT_ACCESS_CONTROL_ALLOW_HEADERS` | CORS allowed headers | |
-| `ADDRESSKIT_INDEX_TIMEOUT` | Index operation timeout | `30s` |
-| `ADDRESSKIT_INDEX_BACKOFF` | Initial backoff delay (ms) | `1000` |
-| `ADDRESSKIT_INDEX_BACKOFF_INCREMENT` | Backoff increment (ms) | `1000` |
-| `ADDRESSKIT_INDEX_BACKOFF_MAX` | Maximum backoff delay (ms) | `10000` |
+
+### Retry & Timeout Settings
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `ADDRESSKIT_INDEX_TIMEOUT` | Index operation timeout | `300s` |
+| `ADDRESSKIT_INDEX_BACKOFF` | Initial backoff delay (ms) | `30000` |
+| `ADDRESSKIT_INDEX_BACKOFF_INCREMENT` | Backoff increment (ms) | `30000` |
+| `ADDRESSKIT_INDEX_BACKOFF_MAX` | Maximum backoff delay (ms) | `600000` |
+| `ADDRESSKIT_INDEX_MAX_RETRIES` | Maximum retry attempts | `10` |
+
+### Container Startup (Docker only)
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `ADDRESSKIT_STARTUP_MAX_RETRIES` | Max retries waiting for OpenSearch | `60` |
+| `ADDRESSKIT_STARTUP_RETRY_INTERVAL` | Seconds between retries | `5` |
+| `ADDRESSKIT_SKIP_OPENSEARCH_WAIT` | Skip waiting for OpenSearch | `false` |
+| `ADDRESSKIT_QUIET` | Suppress startup banner | `false` |
 
 > **Note:** When adjusting `PAGE_SIZE`, consider how quickly you want initial results returned. For most use cases, leave it at 8 and use pagination for additional results. Why 8? [Mechanical Sympathy](https://dzone.com/articles/mechanical-sympathy).
 
@@ -594,16 +695,29 @@ All error responses follow the JSON:API error format:
 ---
 # System Requirements
 
-AddressKit is designed to be lightweight and efficient. It is built to run on modest hardware, and is designed to be self-hosted on your own infrastructure. System requirements are as follows:
+AddressKit is designed to be lightweight and efficient. It is built to run on modest hardware, and is designed to be self-hosted on your own infrastructure.
 
-- **Memory:** 2GB (4GB+ recommended)
-- **Processor:** 1 core (2+ cores recommended)
-- **Disk:** 10 GB
+## Resource Requirements
 
-These requirements do not include the memory required by the base operating system or other processes running on the same machine. These requirements represent the minimum requirements for AddressKit to run, and may vary depending on your use case.
+| Deployment Size | States | Memory | Disk | Use Case |
+|-----------------|--------|--------|------|----------|
+| **Small** | 1-2 states (e.g., ACT) | 2GB | 10GB | Development, testing |
+| **Medium** | 3-4 states | 4GB | 30GB | Regional applications |
+| **Large** | All states | 8GB+ | 100GB+ | National production |
+
+These requirements include both AddressKit and OpenSearch. Memory should be split roughly 50/50 between the API server and OpenSearch (adjust `OPENSEARCH_HEAP` accordingly).
 
 > [!NOTE]
-> If you choose to enable geocoding, you will need to increase the memory requirements to 4GB or more. We recommend at least 8GB of available memory for geocoding.
+> If you enable geocoding (`ADDRESSKIT_ENABLE_GEO=true`), increase memory requirements by approximately 50%. For all states with geocoding, we recommend 12GB+ RAM.
+
+## Production Deployment Tips
+
+For production deployments, consider:
+
+1. **Security:** Set `CORS_ORIGIN` to your specific domain(s), enable OpenSearch security, use HTTPS via a reverse proxy
+2. **Performance:** Tune `OPENSEARCH_HEAP` to 50% of available container memory (max 32GB)
+3. **Reliability:** Set up volume backups for `opensearch-data` and `gnaf-data`, configure log aggregation
+4. **Monitoring:** Enable the `monitoring` profile to access OpenSearch Dashboards
 
 ## Supported Platforms
 

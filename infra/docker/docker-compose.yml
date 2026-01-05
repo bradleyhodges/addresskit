@@ -1,0 +1,270 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# AddressKit Production Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════════
+# Quick Start:
+#   1. Copy .env.example to .env and configure
+#   2. docker compose up -d
+#   3. docker compose run --rm loader  (first time only, to load G-NAF data)
+#   4. Access API at http://localhost:8080/addresses?q=123+main
+#
+# Profiles:
+#   - default: OpenSearch + API (for when data is already loaded)
+#   - loader: Includes the G-NAF data loader
+#   - monitoring: Adds OpenSearch Dashboards
+#
+# Examples:
+#   docker compose up -d                          # Start OpenSearch + API
+#   docker compose --profile loader up loader     # Run the data loader
+#   docker compose --profile monitoring up -d     # Include dashboards
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: addresskit
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OpenSearch - Search and indexing backend
+  # ─────────────────────────────────────────────────────────────────────────────
+  opensearch:
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION:-1.3.20}
+    container_name: addresskit-opensearch
+    hostname: opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      # JVM heap size - adjust based on available memory
+      # Recommended: 50% of available container memory, max 32GB
+      - OPENSEARCH_JAVA_OPTS=-Xms${OPENSEARCH_HEAP:-1g} -Xmx${OPENSEARCH_HEAP:-1g}
+      # Performance tuning
+      - bootstrap.memory_lock=true
+      - cluster.routing.allocation.disk.threshold_enabled=false
+    ports:
+      - "${OPENSEARCH_PORT:-9200}:9200"
+      - "${OPENSEARCH_TRANSPORT_PORT:-9300}:9300"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - addresskit-internal
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          memory: ${OPENSEARCH_MEMORY_LIMIT:-2g}
+        reservations:
+          memory: ${OPENSEARCH_MEMORY_RESERVATION:-1g}
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # AddressKit Loader - Loads G-NAF data into OpenSearch
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Run manually: docker compose run --rm loader
+  loader:
+    image: ${ADDRESSKIT_IMAGE:-bradleyhodges/addresskit}:${ADDRESSKIT_VERSION:-latest}
+    container_name: addresskit-loader
+    profiles:
+      - loader
+    environment:
+      # OpenSearch connection
+      - ELASTIC_HOST=opensearch
+      - ELASTIC_PORT=9200
+      - ELASTIC_PROTOCOL=http
+      - ELASTIC_USERNAME=${ELASTIC_USERNAME:-}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-}
+      # Index configuration
+      - ES_INDEX_NAME=${ES_INDEX_NAME:-addresskit}
+      - ES_CLEAR_INDEX=${ES_CLEAR_INDEX:-false}
+      # Loading options (comma-separated states: ACT,NSW,VIC,QLD,SA,WA,TAS,NT)
+      - COVERED_STATES=${COVERED_STATES:-ACT}
+      # Enable geocoding (latitude/longitude - increases index size ~40%)
+      - ADDRESSKIT_ENABLE_GEO=${ADDRESSKIT_ENABLE_GEO:-false}
+      # Retry configuration
+      - ADDRESSKIT_INDEX_TIMEOUT=${ADDRESSKIT_INDEX_TIMEOUT:-300s}
+      - ADDRESSKIT_INDEX_MAX_RETRIES=${ADDRESSKIT_INDEX_MAX_RETRIES:-10}
+      # Resource management
+      - ADDRESSKIT_DYNAMIC_RESOURCES=true
+      - ADDRESSKIT_TARGET_MEMORY_UTILIZATION=0.7
+      # Logging
+      - VERBOSE=${VERBOSE:-false}
+      - DEBUG=${DEBUG:-api,error}
+      - NODE_ENV=production
+    volumes:
+      # Persist G-NAF downloads to avoid re-downloading (~2GB)
+      - gnaf-data:/home/node/gnaf
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    command: ["addresskit", "load"]
+    restart: "no"
+    networks:
+      - addresskit-internal
+    # Resource limits for loading process
+    deploy:
+      resources:
+        limits:
+          memory: ${LOADER_MEMORY_LIMIT:-2g}
+        reservations:
+          memory: ${LOADER_MEMORY_RESERVATION:-512m}
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # Needs write access for downloads
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # AddressKit API - REST API server for address search/autocomplete
+  # ─────────────────────────────────────────────────────────────────────────────
+  api:
+    image: ${ADDRESSKIT_IMAGE:-bradleyhodges/addresskit}:${ADDRESSKIT_VERSION:-latest}
+    container_name: addresskit-api
+    hostname: api
+    environment:
+      # OpenSearch connection
+      - ELASTIC_HOST=opensearch
+      - ELASTIC_PORT=9200
+      - ELASTIC_PROTOCOL=http
+      - ELASTIC_USERNAME=${ELASTIC_USERNAME:-}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-}
+      # Server configuration
+      - PORT=8080
+      - NODE_ENV=${NODE_ENV:-production}
+      # Index configuration
+      - ES_INDEX_NAME=${ES_INDEX_NAME:-addresskit}
+      # CORS settings (configure for your domain in production)
+      - ADDRESSKIT_ACCESS_CONTROL_ALLOW_ORIGIN=${CORS_ORIGIN:-*}
+      # Caching configuration
+      - ADDRESSKIT_CACHE_ENABLED=${CACHE_ENABLED:-true}
+      - ADDRESSKIT_CACHE_MAX_ENTRIES=${CACHE_MAX_ENTRIES:-1000}
+      - ADDRESSKIT_CACHE_TTL_MS=${CACHE_TTL_MS:-300000}
+      # Resource management
+      - ADDRESSKIT_DYNAMIC_RESOURCES=true
+      - ADDRESSKIT_TARGET_MEMORY_UTILIZATION=0.7
+      # Logging
+      - VERBOSE=${VERBOSE:-false}
+      - DEBUG=${DEBUG:-api,error}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    command: ["addresskit", "start", "--daemon", "--port", "8080"]
+    restart: unless-stopped
+    networks:
+      - addresskit-internal
+      - addresskit-external
+    # Resource limits for API server
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-512m}
+          cpus: "${API_CPU_LIMIT:-1.0}"
+        reservations:
+          memory: ${API_MEMORY_RESERVATION:-256m}
+          cpus: "${API_CPU_RESERVATION:-0.25}"
+      # Production scaling (requires swarm mode or --compatibility flag)
+      replicas: ${API_REPLICAS:-1}
+    healthcheck:
+      test: ["CMD", "/home/node/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "service,environment"
+    labels:
+      - "service=addresskit-api"
+      - "environment=${NODE_ENV:-production}"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OpenSearch Dashboards - Monitoring and visualization (optional)
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Enable with: docker compose --profile monitoring up -d
+  dashboards:
+    image: opensearchproject/opensearch-dashboards:${OPENSEARCH_VERSION:-1.3.20}
+    container_name: addresskit-dashboards
+    profiles:
+      - monitoring
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "${DASHBOARDS_PORT:-5601}:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - addresskit-internal
+    deploy:
+      resources:
+        limits:
+          memory: ${DASHBOARDS_MEMORY_LIMIT:-512m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5601/api/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Volumes - Persistent data storage
+# ═══════════════════════════════════════════════════════════════════════════════
+volumes:
+  opensearch-data:
+    name: addresskit-opensearch-data
+    driver: local
+  gnaf-data:
+    name: addresskit-gnaf-data
+    driver: local
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Networks - Service communication
+# ═══════════════════════════════════════════════════════════════════════════════
+networks:
+  # Internal network for service-to-service communication
+  addresskit-internal:
+    name: addresskit-internal
+    driver: bridge
+    internal: true  # No external access
+  # External network for API access
+  addresskit-external:
+    name: addresskit-external
+    driver: bridge
