@@ -77,6 +77,8 @@ export interface StreamDownOptions {
     enableResume?: boolean;
     /** Called when an incomplete file is detected */
     onIncompleteDetected?: (existingBytes: number, expectedBytes: number) => void;
+    /** Called when a corrupt partial file is detected and deleted */
+    onCorruptFileDeleted?: (existingBytes: number, expectedBytes: number) => void;
     /** Retry configuration for handling transient network errors */
     retry?: RetryConfig;
     /** Timeout configuration for connection and socket operations */

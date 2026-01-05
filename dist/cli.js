@@ -39,7 +39,7 @@ var version;
 var init_version = __esm({
   "packages/core/version.ts"() {
     "use strict";
-    version = "3.0.0";
+    version = "3.0.1";
   }
 });
 
@@ -32478,6 +32478,28 @@ function getExistingFileSize(filePath) {
     return 0;
   }
 }
+function safeDeleteFile(filePath) {
+  try {
+    fs.unlinkSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function validatePartialFile(filePath, expectedSize) {
+  const existingSize = getExistingFileSize(filePath);
+  if (existingSize === 0) {
+    return { resumeFromBytes: 0, wasDeleted: false };
+  }
+  if (expectedSize <= 0) {
+    return { resumeFromBytes: existingSize, wasDeleted: false };
+  }
+  if (existingSize >= expectedSize) {
+    safeDeleteFile(filePath);
+    return { resumeFromBytes: 0, wasDeleted: true };
+  }
+  return { resumeFromBytes: existingSize, wasDeleted: false };
+}
 function attemptDownload(opts, existingSize, retryAttempt) {
   const uri = new import_node_url.URL(opts.url);
   const resolvedDestination = opts.destinationPath ?? path.basename(uri.pathname ?? opts.url);
@@ -32552,6 +32574,18 @@ function attemptDownload(opts, existingSize, retryAttempt) {
             existingSize,
             retryAttempt
           ).then(resolve2).catch(reject);
+          return;
+        }
+        if (response.statusCode === 416 && CORRUPT_FILE_HTTP_STATUS_CODES.has(response.statusCode)) {
+          cleanup();
+          file.close();
+          safeDeleteFile(resolvedDestination);
+          const error8 = new Error(
+            "HTTP 416: Range Not Satisfiable - partial file was corrupt, deleted and will restart"
+          );
+          error8.code = "HTTP_416_RESTART";
+          error8.requiresRestart = true;
+          reject(error8);
           return;
         }
         if (response.statusCode && RETRYABLE_HTTP_STATUS_CODES.has(response.statusCode)) {
@@ -32655,17 +32689,49 @@ function attemptDownload(opts, existingSize, retryAttempt) {
         if (serverSupportsResume && isResuming) {
           emitProgress(true);
         }
+        let bytesWrittenThisSession = 0;
+        const expectedBytesThisSession = serverSupportsResume ? totalBytes - existingSize : totalBytes;
         response.on("data", (chunk) => {
           resetSocketTimeout();
+          const overflowThreshold = Math.max(
+            expectedBytesThisSession * 1.01,
+            expectedBytesThisSession + 1024
+          );
+          if (totalBytes > 0 && bytesWrittenThisSession + chunk.length > overflowThreshold) {
+            file.close(() => {
+              safeDeleteFile(resolvedDestination);
+            });
+            const error8 = new Error(
+              `Data overflow detected: received ${bytesWrittenThisSession + chunk.length} bytes but expected ~${expectedBytesThisSession}`
+            );
+            error8.code = "DATA_OVERFLOW";
+            abortWithError(error8);
+            req.destroy();
+            return;
+          }
           file.write(chunk);
+          bytesWrittenThisSession += chunk.length;
           bytesDownloaded += chunk.length;
           emitProgress();
         });
         response.on("end", () => {
           cleanup();
-          file.end();
-          emitProgress(true);
-          resolve2(response);
+          file.end(() => {
+            emitProgress(true);
+            if (totalBytes > 0) {
+              const finalSize = getExistingFileSize(resolvedDestination);
+              if (finalSize !== totalBytes) {
+                safeDeleteFile(resolvedDestination);
+                const error8 = new Error(
+                  `File size mismatch: expected ${totalBytes} bytes but got ${finalSize}`
+                );
+                error8.code = "SIZE_MISMATCH";
+                reject(error8);
+                return;
+              }
+            }
+            resolve2(response);
+          });
         });
         response.on("error", (error8) => {
           abortWithError(error8);
@@ -32709,21 +32775,71 @@ async function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgres
   const backoffMultiplier = opts.retry?.backoffMultiplier ?? 2;
   const enableResume = opts.enableResume !== false;
   let lastError;
+  let restartCount = 0;
+  const maxRestarts = 3;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const existingSize = enableResume ? getExistingFileSize(resolvedDestination) : 0;
+    let existingSize = 0;
+    if (enableResume) {
+      const existingSizeBeforeValidation = getExistingFileSize(resolvedDestination);
+      const validation = validatePartialFile(
+        resolvedDestination,
+        opts.expectedSize ?? 0
+      );
+      existingSize = validation.resumeFromBytes;
+      if (validation.wasDeleted) {
+        if (opts.onCorruptFileDeleted) {
+          opts.onCorruptFileDeleted(
+            existingSizeBeforeValidation,
+            opts.expectedSize ?? 0
+          );
+        }
+        if (opts.retry?.onRetry) {
+          opts.retry.onRetry(
+            attempt,
+            new Error(
+              `Deleted corrupt partial file (${existingSizeBeforeValidation} bytes, expected ${opts.expectedSize ?? "unknown"}), restarting download`
+            ),
+            0
+          );
+        }
+      }
+    }
     try {
       const response = await attemptDownload(opts, existingSize, attempt);
       return response;
     } catch (error8) {
       lastError = error8;
-      const retryable = isRetryableError(
-        error8
-      );
+      const errorWithCode = error8;
+      if (errorWithCode.requiresRestart) {
+        restartCount++;
+        if (restartCount > maxRestarts) {
+          throw new DownloadError(
+            `Download failed: file corruption detected ${restartCount} times`,
+            "CORRUPT_FILE_LOOP",
+            attempt + 1,
+            false,
+            0
+          );
+        }
+        attempt--;
+        if (opts.retry?.onRetry) {
+          opts.retry.onRetry(
+            attempt + 1,
+            new Error(
+              `Restarting download from scratch (attempt ${restartCount}/${maxRestarts})`
+            ),
+            1e3
+          );
+        }
+        await sleep(1e3);
+        continue;
+      }
+      const retryable = isRetryableError(errorWithCode);
       if (!retryable || attempt >= maxRetries) {
         const downloadedBytes = getExistingFileSize(resolvedDestination);
         throw new DownloadError(
           `Download failed after ${attempt + 1} attempt(s): ${error8.message}`,
-          error8.code,
+          errorWithCode.code,
           attempt + 1,
           retryable,
           downloadedBytes
@@ -32749,7 +32865,7 @@ async function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgres
     getExistingFileSize(resolvedDestination)
   );
 }
-var fs, import_node_https, path, import_node_url, DownloadError, RETRYABLE_ERROR_CODES, RETRYABLE_HTTP_STATUS_CODES;
+var fs, import_node_https, path, import_node_url, DownloadError, RETRYABLE_ERROR_CODES, RETRYABLE_HTTP_STATUS_CODES, CORRUPT_FILE_HTTP_STATUS_CODES;
 var init_stream_down = __esm({
   "packages/core/utils/stream-down.ts"() {
     "use strict";
@@ -32795,7 +32911,11 @@ var init_stream_down = __esm({
       "EAI_AGAIN",
       "EPROTO",
       "SOCKET_TIMEOUT",
-      "CONNECT_TIMEOUT"
+      "CONNECT_TIMEOUT",
+      "DATA_OVERFLOW",
+      // Received more data than expected - likely corrupt stream
+      "SIZE_MISMATCH"
+      // Final file size doesn't match expected - retry from scratch
     ]);
     RETRYABLE_HTTP_STATUS_CODES = /* @__PURE__ */ new Set([
       408,
@@ -32810,6 +32930,10 @@ var init_stream_down = __esm({
       // Service Unavailable
       504
       // Gateway Timeout
+    ]);
+    CORRUPT_FILE_HTTP_STATUS_CODES = /* @__PURE__ */ new Set([
+      416
+      // Range Not Satisfiable - partial file is larger than or misaligned with remote
     ]);
   }
 });

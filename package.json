@@ -1,6 +1,6 @@
 {
     "name": "@bradleyhodges/addresskit",
-    "version": "3.0.0",
+    "version": "3.0.1",
     "description": "Scalable address ingestion, validation, search, and autocomplete engine for Australian addresses",
     "config": {
         "SEARCH_IMAGE": "opensearchproject/opensearch:1.3.20"
