@@ -121,6 +121,9 @@ services:
       - ELASTIC_HOST=opensearch
       - ELASTIC_PORT=9200
       - COVERED_STATES=${COVERED_STATES:-}
+      # CRITICAL: Set Node.js heap size for large states (NSW needs 3GB+)
+      # Set to ~75% of your container memory limit
+      - NODE_OPTIONS=--max-old-space-size=${LOADER_NODE_HEAP_MB:-3072}
       # - ADDRESSKIT_ENABLE_GEO=true  # Uncomment to enable geocoding
     volumes:
       - gnaf-data:/home/node/gnaf
@@ -129,6 +132,11 @@ services:
         condition: service_healthy
     command: ["addresskit", "load"]
     restart: "no"
+    # Increase memory limit for large states (NSW requires 4GB+)
+    deploy:
+      resources:
+        limits:
+          memory: ${LOADER_MEMORY_LIMIT:-4g}
 
   # Optional: OpenSearch Dashboards for monitoring
   dashboards:
@@ -284,15 +292,31 @@ addresskit load
 ---
 # Enabling Geocoding
 
-Geocoding is an optional feature that can be enabled by setting the `ADDRESSKIT_ENABLE_GEO` environment variable to `1`. This will enable geocoding of addresses to latitude and longitude coordinates. Note that geocoding requires more memory, and is disabled by default. To enable geocoding, add the following to your `.env` or `docker-compose.yml` file:
+Geocoding is an optional feature that can be enabled by setting the `ADDRESSKIT_ENABLE_GEO` environment variable to `true`. This will enable geocoding of addresses to latitude and longitude coordinates. Note that geocoding requires significantly more memory, and is disabled by default.
+
+### Docker Compose
+
+Add to your `.env` file:
+
+```env
+ADDRESSKIT_ENABLE_GEO=true
+
+# Memory settings for geocoding (adjust based on your server RAM)
+# For 16GB server:
+LOADER_MEMORY_LIMIT=6g
+LOADER_NODE_HEAP_MB=4608
+OPENSEARCH_HEAP=6g
+```
+
+### npm (Direct Installation)
 
 ```env
 ADDRESSKIT_ENABLE_GEO=1
-NODE_OPTIONS=--max_old_space_size=8196 # This is the maximum memory allocation for the Node.js process. Adjust this value based on your system's available memory.
+NODE_OPTIONS=--max-old-space-size=4608
 ```
 
-> [!IMPORTANT] Geocoding requires more memory
-> With geocoding enabled, indexing takes longer and requires more memory (8GB recommended). If you are experiencing memory issues, you can adjust the `NODE_OPTIONS` value to allocate more memory to the Node.js process. You can read more about the `NODE_OPTIONS` environment variable [here](https://nodejs.org/api/cli.html#node_optionsoptions).
+> [!IMPORTANT] Geocoding requires significantly more memory
+> With geocoding enabled, indexing takes longer and requires approximately 50% more memory. See the [Memory by State](#memory-by-state) table for specific requirements. NSW with geocoding requires at least 6GB of Node.js heap.
 
 ---
 # Updating AddressKit
@@ -470,6 +494,19 @@ addresskit version
 | `ADDRESSKIT_ENABLE_GEO` | Enable geocoding (`true` or `1` to enable) | Disabled |
 | `ES_CLEAR_INDEX` | Clear index before loading | `false` |
 | `GNAF_DIR` | Directory for G-NAF data cache | `/home/node/gnaf` |
+
+### Memory Configuration (Docker)
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `LOADER_MEMORY_LIMIT` | Container memory limit for loader | `4g` |
+| `LOADER_MEMORY_RESERVATION` | Container memory reservation | `2g` |
+| `LOADER_NODE_HEAP_MB` | Node.js heap size in MB (~75% of container limit) | `3072` |
+| `OPENSEARCH_HEAP` | OpenSearch JVM heap size | `1g` |
+| `OPENSEARCH_MEMORY_LIMIT` | OpenSearch container memory limit | `2g` |
+
+> [!IMPORTANT]
+> `LOADER_NODE_HEAP_MB` is **critical** for processing large states. Node.js does not automatically use container memory - you must explicitly set the heap size. For a 4GB container, use `3072` (3GB). For 6GB, use `4608` (4.5GB).
 
 ### Performance & Caching
 
@@ -810,16 +847,41 @@ AddressKit is designed to be lightweight and efficient. It is built to run on mo
 
 ## Resource Requirements
 
+### Server Sizing Guide
+
+| Server RAM | OpenSearch Heap | Loader Container | Loader Node Heap | Recommended For |
+|------------|-----------------|------------------|------------------|-----------------|
+| **4GB** | 1.5GB | 2GB | 1536MB | ACT/TAS/NT only |
+| **8GB** | 3GB | 4GB | 3072MB | 1-3 states |
+| **16GB** | 6GB | 6GB | 4608MB | All states |
+| **32GB+** | 12GB | 8GB | 6144MB | All states + geocoding |
+
+### Memory by State
+
+| State | Addresses | Loader Memory (no geo) | Loader Memory (with geo) |
+|-------|-----------|------------------------|--------------------------|
+| ACT | 280K | 1GB | 1.5GB |
+| TAS | 350K | 1GB | 1.5GB |
+| NT | 130K | 1GB | 1.5GB |
+| SA | 1.1M | 2GB | 3GB |
+| WA | 1.3M | 2GB | 3GB |
+| QLD | 2.5M | 3GB | 4GB |
+| VIC | 3.5M | 3GB | 4.5GB |
+| **NSW** | **4.5M** | **4GB** | **6GB** |
+
+> [!IMPORTANT]
+> **Node.js does not automatically use all container memory.** You must explicitly set `NODE_OPTIONS=--max-old-space-size=<MB>` to increase the heap size. Set it to ~75% of your loader container memory limit. Without this, Node.js defaults to ~1.5GB heap regardless of container size, causing "JavaScript heap out of memory" errors when processing large states.
+
+### Legacy Table (Deprecated)
+
 | Deployment Size | States | Memory | Disk | Use Case |
 |-----------------|--------|--------|------|----------|
-| **Small** | 1-2 states (e.g., ACT) | 2GB | 10GB | Development, testing |
-| **Medium** | 3-4 states | 4GB | 30GB | Regional applications |
-| **Large** | All states | 8GB+ | 100GB+ | National production |
-
-These requirements include both AddressKit and OpenSearch. Memory should be split roughly 50/50 between the API server and OpenSearch (adjust `OPENSEARCH_HEAP` accordingly).
+| **Small** | 1-2 states (e.g., ACT) | 4GB | 10GB | Development, testing |
+| **Medium** | 3-4 states | 8GB | 30GB | Regional applications |
+| **Large** | All states | 16GB+ | 100GB+ | National production |
 
 > [!NOTE]
-> If you enable geocoding (`ADDRESSKIT_ENABLE_GEO=true`), increase memory requirements by approximately 50%. For all states with geocoding, we recommend 12GB+ RAM.
+> If you enable geocoding (`ADDRESSKIT_ENABLE_GEO=true`), increase memory requirements by approximately 50%. For all states with geocoding, we recommend 32GB+ RAM.
 
 ## Production Deployment Tips
 

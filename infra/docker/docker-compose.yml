@@ -84,6 +84,10 @@ services:
     profiles:
       - loader
     environment:
+      # Node.js memory configuration - CRITICAL for large state processing
+      # Set to ~75% of container memory limit to leave room for OS and buffers
+      # For 4GB container: 3072, for 6GB: 4608, for 8GB: 6144
+      - NODE_OPTIONS=--max-old-space-size=${LOADER_NODE_HEAP_MB:-3072}
       # OpenSearch connection
       - ELASTIC_HOST=opensearch
       - ELASTIC_PORT=9200
@@ -135,12 +139,14 @@ services:
       - 8.8.4.4
       - 1.1.1.1
     # Resource limits for loading process
+    # NSW (largest state) with geocoding requires ~4GB to process safely
+    # Increase LOADER_MEMORY_LIMIT if you encounter OOM errors
     deploy:
       resources:
         limits:
-          memory: ${LOADER_MEMORY_LIMIT:-2g}
+          memory: ${LOADER_MEMORY_LIMIT:-4g}
         reservations:
-          memory: ${LOADER_MEMORY_RESERVATION:-512m}
+          memory: ${LOADER_MEMORY_RESERVATION:-2g}
     security_opt:
       - no-new-privileges:true
     read_only: false  # Needs write access for downloads
