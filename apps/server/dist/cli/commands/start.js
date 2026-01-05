@@ -34,7 +34,7 @@ const error = (0, debug_1.default)("error");
  */
 async function runStartCommand(options) {
     const isDaemon = (0, terminalUI_1.getDaemonMode)();
-    const port = options.port || process.env.PORT || "8080";
+    const port = options.port || process.env.PORT || "7234";
     // Enable debug loggers if not in daemon mode
     if (!isDaemon && process.env.DEBUG === undefined) {
         debug_1.default.enable("api,error");

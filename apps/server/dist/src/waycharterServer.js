@@ -53,7 +53,7 @@ const config_1 = require("../service/config");
 const app = (0, express_1.default)();
 const ONE_DAY = 60 * 60 * 24;
 const ONE_WEEK = ONE_DAY * 7;
-const serverPort = Number(process.env.PORT ?? 8080);
+const serverPort = Number(process.env.PORT ?? 7234);
 const logger = (0, debug_1.default)("api");
 const error = (0, debug_1.default)("error");
 // Ensure error-level logs surface even when debug namespaces are filtered.

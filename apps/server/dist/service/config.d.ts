@@ -111,13 +111,31 @@ export declare const LOADING_CHUNK_SIZE: number;
  */
 export declare const ENABLE_GEO: boolean;
 /**
+ * URL to the AddressKit G-NAF mirror configuration.
+ * This CDN-powered mirror provides faster and more reliable downloads.
+ * Falls back to data.gov.au if the mirror is unavailable.
+ *
+ * @default "https://dl.addresskit.com.au/package_show.conf.json"
+ * @env GNAF_MIRROR_URL
+ */
+export declare const GNAF_MIRROR_URL: string;
+/**
  * URL to the G-NAF package metadata on data.gov.au.
- * Used to discover the latest G-NAF download URL.
+ * Used as fallback when the mirror is unavailable.
  *
  * @default "https://data.gov.au/api/3/action/package_show?id=19432f89-dc3a-4ef3-b943-5326ef1dbecc"
  * @env GNAF_PACKAGE_URL
  */
 export declare const GNAF_PACKAGE_URL: string;
+/**
+ * Whether to use the AddressKit mirror as the primary download source.
+ * When enabled, downloads are faster and more reliable via CDN.
+ * Falls back to data.gov.au automatically if mirror is unavailable.
+ *
+ * @default true
+ * @env GNAF_USE_MIRROR
+ */
+export declare const GNAF_USE_MIRROR: boolean;
 /**
  * Local directory for storing downloaded G-NAF data files.
  *
@@ -217,6 +235,45 @@ export declare const CIRCUIT_RESET_TIMEOUT_MS: number;
  * @env ADDRESSKIT_CIRCUIT_SUCCESS_THRESHOLD
  */
 export declare const CIRCUIT_SUCCESS_THRESHOLD: number;
+/**
+ * Maximum number of retry attempts for failed G-NAF downloads.
+ * Network errors (ECONNRESET, timeout) will trigger automatic retries.
+ *
+ * @default 5
+ * @env ADDRESSKIT_DOWNLOAD_MAX_RETRIES
+ */
+export declare const DOWNLOAD_MAX_RETRIES: number;
+/**
+ * Initial backoff delay in milliseconds before retrying failed downloads.
+ * Used as the base delay for exponential backoff.
+ *
+ * @default 5000 (5 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_BACKOFF_INITIAL
+ */
+export declare const DOWNLOAD_BACKOFF_INITIAL: number;
+/**
+ * Maximum backoff delay in milliseconds between download retries.
+ * Prevents backoff from growing indefinitely.
+ *
+ * @default 60000 (1 minute)
+ * @env ADDRESSKIT_DOWNLOAD_BACKOFF_MAX
+ */
+export declare const DOWNLOAD_BACKOFF_MAX: number;
+/**
+ * Socket timeout in milliseconds for download connections.
+ * If no data is received for this duration, the connection is reset.
+ *
+ * @default 30000 (30 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_SOCKET_TIMEOUT
+ */
+export declare const DOWNLOAD_SOCKET_TIMEOUT: number;
+/**
+ * Connection timeout in milliseconds for establishing download connections.
+ *
+ * @default 30000 (30 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_CONNECT_TIMEOUT
+ */
+export declare const DOWNLOAD_CONNECT_TIMEOUT: number;
 /**
  * Whether to enable dynamic resource-aware configuration.
  * When enabled, chunk sizes are calculated based on available system memory.

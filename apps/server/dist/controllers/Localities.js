@@ -106,7 +106,7 @@ function getLocalities(request, response) {
     const q = request.swagger.params.q?.value;
     const p = request.swagger.params.p?.value;
     // Construct the base URL for HATEOAS link generation
-    const url = new URL(request.url, `http://localhost:${process.env.PORT ?? "8080"}`);
+    const url = new URL(request.url, `http://localhost:${process.env.PORT ?? "7234"}`);
     // Fetch matching localities from OpenSearch
     // Cast swagger context as the service expects the path.get structure
     const localitiesPromise = (0, service_1.getLocalities)(url.pathname, request.swagger, q, p);

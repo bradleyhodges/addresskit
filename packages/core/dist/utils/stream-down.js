@@ -33,11 +33,120 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.DownloadError = void 0;
 exports.default = streamDown;
 const fs = __importStar(require("node:fs"));
 const node_https_1 = require("node:https");
 const path = __importStar(require("node:path"));
 const node_url_1 = require("node:url");
+/**
+ * Custom error class for download failures with retry context.
+ */
+class DownloadError extends Error {
+    /** The underlying error code (e.g., ECONNRESET, ETIMEDOUT) */
+    code;
+    /** Number of retry attempts made before giving up */
+    attempts;
+    /** Whether this error is retryable */
+    isRetryable;
+    /** Bytes downloaded before the failure */
+    bytesDownloaded;
+    /**
+     * Creates a new DownloadError.
+     *
+     * @param message - Human-readable error description.
+     * @param code - Error code from the underlying error.
+     * @param attempts - Number of retry attempts made.
+     * @param isRetryable - Whether the error could be retried.
+     * @param bytesDownloaded - Bytes downloaded before failure.
+     */
+    constructor(message, code, attempts = 0, isRetryable = false, bytesDownloaded = 0) {
+        super(message);
+        this.name = "DownloadError";
+        this.code = code;
+        this.attempts = attempts;
+        this.isRetryable = isRetryable;
+        this.bytesDownloaded = bytesDownloaded;
+    }
+}
+exports.DownloadError = DownloadError;
+/**
+ * Error codes that indicate transient network issues worth retrying.
+ */
+const RETRYABLE_ERROR_CODES = new Set([
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "ENETUNREACH",
+    "EHOSTUNREACH",
+    "EPIPE",
+    "EAI_AGAIN",
+    "EPROTO",
+    "SOCKET_TIMEOUT",
+    "CONNECT_TIMEOUT",
+]);
+/**
+ * HTTP status codes that indicate transient server issues worth retrying.
+ */
+const RETRYABLE_HTTP_STATUS_CODES = new Set([
+    408, // Request Timeout
+    429, // Too Many Requests
+    500, // Internal Server Error
+    502, // Bad Gateway
+    503, // Service Unavailable
+    504, // Gateway Timeout
+]);
+/**
+ * Determines if an error is retryable based on its code or message.
+ *
+ * @param error - The error to evaluate.
+ * @returns True if the error is worth retrying.
+ */
+function isRetryableError(error) {
+    // Check error code directly
+    if (error.code && RETRYABLE_ERROR_CODES.has(error.code)) {
+        return true;
+    }
+    // Check error message for common patterns
+    const message = error.message.toLowerCase();
+    if (message.includes("econnreset") ||
+        message.includes("socket hang up") ||
+        message.includes("connection reset") ||
+        message.includes("network") ||
+        message.includes("timeout") ||
+        message.includes("aborted")) {
+        return true;
+    }
+    return false;
+}
+/**
+ * Calculates the backoff delay for a retry attempt using exponential backoff with jitter.
+ *
+ * @param attempt - The current retry attempt (0-based).
+ * @param initialBackoff - Initial backoff delay in milliseconds.
+ * @param maxBackoff - Maximum backoff delay in milliseconds.
+ * @param multiplier - Backoff multiplier for exponential growth.
+ * @returns The delay in milliseconds before the next retry.
+ */
+function calculateBackoff(attempt, initialBackoff, maxBackoff, multiplier) {
+    // Exponential backoff: initialBackoff * (multiplier ^ attempt)
+    const exponentialDelay = initialBackoff * multiplier ** attempt;
+    // Cap at maximum backoff
+    const cappedDelay = Math.min(exponentialDelay, maxBackoff);
+    // Add jitter (±25%) to prevent thundering herd
+    const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
+    return Math.round(cappedDelay + jitter);
+}
+/**
+ * Waits for a specified duration.
+ *
+ * @param ms - Duration to wait in milliseconds.
+ * @returns A promise that resolves after the specified duration.
+ */
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 /**
  * Gets the size of an existing file, returning 0 if the file doesn't exist.
  *
@@ -54,36 +163,21 @@ function getExistingFileSize(filePath) {
     }
 }
 /**
- * Downloads a remote file to disk with optional progress callbacks.
+ * Performs a single download attempt with timeout support.
  *
- * Supports both object-based options and legacy positional arguments.
- * Automatically resumes incomplete downloads when enableResume is true (default).
- *
- * @param {StreamDownOptions | string} optionsOrUrl - Options object or URL string.
- * @param {string} destinationPath - Optional destination path (legacy).
- * @param {number} expectedSize - Optional expected size (legacy).
- * @param {(progress: DownloadProgress) => void} onProgress - Optional progress callback (legacy).
- * @returns {Promise<IncomingMessage>} Resolves with the response once the file is fully written.
+ * @param opts - Download options.
+ * @param existingSize - Size of existing partial file (for resume).
+ * @param retryAttempt - Current retry attempt number.
+ * @returns Promise resolving to the response when download completes.
  */
-function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
-    // Normalize arguments to options object
-    const opts = typeof optionsOrUrl === "string"
-        ? {
-            url: optionsOrUrl,
-            destinationPath,
-            expectedSize,
-            onProgress,
-        }
-        : optionsOrUrl;
+function attemptDownload(opts, existingSize, retryAttempt) {
     // Parse the URL using the modern WHATWG URL API
     const uri = new node_url_1.URL(opts.url);
     // Resolve the destination path to a file name
     const resolvedDestination = opts.destinationPath ?? path.basename(uri.pathname ?? opts.url);
-    // Check for existing partial file (resume support)
-    const enableResume = opts.enableResume !== false;
-    const existingSize = enableResume
-        ? getExistingFileSize(resolvedDestination)
-        : 0;
+    // Timeout configuration with defaults
+    const socketTimeout = opts.timeout?.socketTimeout ?? 30000;
+    const connectTimeout = opts.timeout?.connectTimeout ?? 30000;
     const isResuming = existingSize > 0;
     // Notify about incomplete file detection
     if (isResuming && opts.onIncompleteDetected && opts.expectedSize) {
@@ -96,21 +190,63 @@ function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
     // Progress tracking state
     const progressInterval = opts.progressInterval ?? 100;
     return new Promise((resolve, reject) => {
+        // Track if the request has been aborted
+        let aborted = false;
+        let connectTimeoutId;
+        let socketTimeoutId;
+        /**
+         * Cleanup function to clear timeouts and close resources.
+         */
+        const cleanup = () => {
+            if (connectTimeoutId) {
+                clearTimeout(connectTimeoutId);
+                connectTimeoutId = undefined;
+            }
+            if (socketTimeoutId) {
+                clearTimeout(socketTimeoutId);
+                socketTimeoutId = undefined;
+            }
+        };
+        /**
+         * Abort the request with an error.
+         */
+        const abortWithError = (error) => {
+            if (aborted)
+                return;
+            aborted = true;
+            cleanup();
+            file.close();
+            reject(error);
+        };
         // Build request options with Range header for resume
-        const requestOptions = {};
+        const requestOptions = {
+            timeout: connectTimeout,
+        };
         if (isResuming) {
             requestOptions.headers = {
                 Range: `bytes=${existingSize}-`,
             };
         }
+        // Set connection timeout
+        connectTimeoutId = setTimeout(() => {
+            const error = new Error(`Connection timeout after ${connectTimeout}ms`);
+            error.code = "CONNECT_TIMEOUT";
+            abortWithError(error);
+        }, connectTimeout);
         // Get the response from the URL
-        (0, node_https_1.get)(uri.href, requestOptions, (response) => {
+        const req = (0, node_https_1.get)(uri.href, requestOptions, (response) => {
+            // Clear connection timeout - we're connected
+            if (connectTimeoutId) {
+                clearTimeout(connectTimeoutId);
+                connectTimeoutId = undefined;
+            }
             // Handle redirects (3xx status codes)
             if (response.statusCode &&
                 response.statusCode >= 300 &&
                 response.statusCode < 400 &&
                 response.headers.location) {
                 // Follow the redirect
+                cleanup();
                 file.close();
                 // Only delete if not resuming, otherwise we lose progress
                 if (!isResuming) {
@@ -121,12 +257,32 @@ function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
                         // File may not exist yet
                     }
                 }
-                streamDown({
+                attemptDownload({
                     ...opts,
                     url: response.headers.location,
-                })
+                }, existingSize, retryAttempt)
                     .then(resolve)
                     .catch(reject);
+                return;
+            }
+            // Check for retryable HTTP errors
+            if (response.statusCode &&
+                RETRYABLE_HTTP_STATUS_CODES.has(response.statusCode)) {
+                const error = new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`);
+                error.code = `HTTP_${response.statusCode}`;
+                error.statusCode = response.statusCode;
+                cleanup();
+                file.close();
+                reject(error);
+                return;
+            }
+            // Check for non-success status codes
+            if (response.statusCode && response.statusCode >= 400) {
+                const error = new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`);
+                error.code = `HTTP_${response.statusCode}`;
+                cleanup();
+                file.close();
+                reject(error);
                 return;
             }
             // Check if server supports resume (206 Partial Content)
@@ -135,6 +291,7 @@ function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
             if (isResuming &&
                 !serverSupportsResume &&
                 response.statusCode === 200) {
+                cleanup();
                 file.close();
                 // Delete the partial file and start fresh
                 try {
@@ -144,10 +301,10 @@ function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
                     // Ignore deletion errors
                 }
                 // Retry without resume
-                streamDown({
+                attemptDownload({
                     ...opts,
                     enableResume: false,
-                })
+                }, 0, retryAttempt)
                     .then(resolve)
                     .catch(reject);
                 return;
@@ -169,12 +326,25 @@ function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
             }
             // Progress tracking - start from existing size if resuming
             let bytesDownloaded = serverSupportsResume ? existingSize : 0;
-            const bytesDownloadedStart = bytesDownloaded;
             let lastProgressTime = Date.now();
             let lastProgressBytes = bytesDownloaded;
             let bytesPerSecond = 0;
             // Throttle progress updates
             let lastEmitTime = 0;
+            /**
+             * Resets the socket timeout when data is received.
+             */
+            const resetSocketTimeout = () => {
+                if (socketTimeoutId) {
+                    clearTimeout(socketTimeoutId);
+                }
+                socketTimeoutId = setTimeout(() => {
+                    const error = new Error(`Socket timeout: no data received for ${socketTimeout}ms`);
+                    error.code = "SOCKET_TIMEOUT";
+                    abortWithError(error);
+                    req.destroy();
+                }, socketTimeout);
+            };
             /**
              * Emits a progress update to the callback if provided.
              *
@@ -214,34 +384,133 @@ function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
                     resumedFromBytes: serverSupportsResume
                         ? existingSize
                         : undefined,
+                    retryAttempt,
                 });
             };
+            // Start socket timeout
+            resetSocketTimeout();
             // Emit initial progress if resuming
             if (serverSupportsResume && isResuming) {
                 emitProgress(true);
             }
             // Write the data to the file
             response.on("data", (chunk) => {
+                // Reset socket timeout on each data chunk
+                resetSocketTimeout();
                 file.write(chunk);
                 bytesDownloaded += chunk.length;
                 emitProgress();
             });
             // End the file
             response.on("end", () => {
+                cleanup();
                 file.end();
                 // Emit final progress
                 emitProgress(true);
                 resolve(response);
             });
-            // Handle errors
+            // Handle response errors
             response.on("error", (error) => {
-                file.close();
-                reject(error);
+                abortWithError(error);
             });
-        }).on("error", (error) => {
-            file.close();
-            reject(error);
+            // Handle premature close (connection dropped)
+            response.on("close", () => {
+                if (!aborted &&
+                    bytesDownloaded < totalBytes &&
+                    totalBytes > 0) {
+                    const error = new Error(`Connection closed prematurely: downloaded ${bytesDownloaded} of ${totalBytes} bytes`);
+                    error.code = "ECONNRESET";
+                    abortWithError(error);
+                }
+            });
+        });
+        // Handle request errors
+        req.on("error", (error) => {
+            abortWithError(error);
+        });
+        // Handle request timeout (built-in)
+        req.on("timeout", () => {
+            const error = new Error(`Request timeout after ${connectTimeout}ms`);
+            error.code = "ETIMEDOUT";
+            req.destroy();
+            abortWithError(error);
         });
     });
+}
+/**
+ * Downloads a remote file to disk with automatic retry on transient errors.
+ *
+ * This function implements robust download handling with:
+ * - Automatic resume support for partial downloads
+ * - Exponential backoff with jitter for retries
+ * - Configurable socket and connection timeouts
+ * - Progress callbacks with retry information
+ *
+ * Common transient errors (ECONNRESET, timeout, etc.) will trigger automatic
+ * retries with the partial file preserved for resume. This is critical for
+ * reliable downloads in containerized environments where network instability
+ * is more common.
+ *
+ * @param {StreamDownOptions | string} optionsOrUrl - Options object or URL string.
+ * @param {string} destinationPath - Optional destination path (legacy).
+ * @param {number} expectedSize - Optional expected size (legacy).
+ * @param {(progress: DownloadProgress) => void} onProgress - Optional progress callback (legacy).
+ * @returns {Promise<IncomingMessage>} Resolves with the response once the file is fully written.
+ * @throws {DownloadError} If all retry attempts are exhausted without success.
+ */
+async function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
+    // Normalize arguments to options object
+    const opts = typeof optionsOrUrl === "string"
+        ? {
+            url: optionsOrUrl,
+            destinationPath,
+            expectedSize,
+            onProgress,
+        }
+        : optionsOrUrl;
+    // Parse the URL using the modern WHATWG URL API
+    const uri = new node_url_1.URL(opts.url);
+    // Resolve the destination path to a file name
+    const resolvedDestination = opts.destinationPath ?? path.basename(uri.pathname ?? opts.url);
+    // Retry configuration with defaults
+    const maxRetries = opts.retry?.maxRetries ?? 5;
+    const initialBackoff = opts.retry?.initialBackoff ?? 5000;
+    const maxBackoff = opts.retry?.maxBackoff ?? 60000;
+    const backoffMultiplier = opts.retry?.backoffMultiplier ?? 2;
+    // Check for existing partial file (resume support)
+    const enableResume = opts.enableResume !== false;
+    let lastError;
+    // Retry loop
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        // Get existing file size for potential resume
+        const existingSize = enableResume
+            ? getExistingFileSize(resolvedDestination)
+            : 0;
+        try {
+            // Attempt the download
+            const response = await attemptDownload(opts, existingSize, attempt);
+            return response;
+        }
+        catch (error) {
+            lastError = error;
+            // Check if error is retryable
+            const retryable = isRetryableError(error);
+            // If not retryable or we've exhausted retries, throw
+            if (!retryable || attempt >= maxRetries) {
+                const downloadedBytes = getExistingFileSize(resolvedDestination);
+                throw new DownloadError(`Download failed after ${attempt + 1} attempt(s): ${error.message}`, error.code, attempt + 1, retryable, downloadedBytes);
+            }
+            // Calculate backoff delay
+            const delayMs = calculateBackoff(attempt, initialBackoff, maxBackoff, backoffMultiplier);
+            // Notify about retry via callback
+            if (opts.retry?.onRetry) {
+                opts.retry.onRetry(attempt + 1, error, delayMs);
+            }
+            // Wait before retry
+            await sleep(delayMs);
+        }
+    }
+    // This should never be reached, but TypeScript needs it
+    throw new DownloadError(`Download failed after ${maxRetries + 1} attempts`, lastError?.message, maxRetries + 1, false, getExistingFileSize(resolvedDestination));
 }
 //# sourceMappingURL=stream-down.js.map

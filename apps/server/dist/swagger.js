@@ -49,7 +49,7 @@ const swagger_tools_1 = require("swagger-tools");
 const config_1 = require("./service/config");
 // Create the express app and set the server port
 const app = (0, express_1.default)();
-const serverPort = Number.parseInt(process.env.PORT ?? "8080", 10);
+const serverPort = Number.parseInt(process.env.PORT ?? "7234", 10);
 /**
  * The logger for the API.
  */

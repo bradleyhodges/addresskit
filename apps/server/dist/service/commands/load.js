@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadCommandEntry = exports.sendIndexRequest = exports.IndexingError = void 0;
+exports.loadCommandEntry = exports.sendIndexRequest = exports.IndexingError = exports.getLastPackageSource = void 0;
 const crypto = __importStar(require("node:crypto"));
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -52,18 +52,41 @@ const helpers_1 = require("../helpers");
 const fs_1 = require("../helpers/fs");
 const index_1 = require("../index");
 /**
- * Fetches the GNAF package data from the cache (if fresh enough content exists) or from the network.
+ * Tracks which source was used for the package data (for logging).
+ */
+let lastPackageSource = "cache";
+/**
+ * Gets the source used for the last package fetch.
+ *
+ * @returns The source used: "mirror", "upstream", or "cache".
+ */
+const getLastPackageSource = () => lastPackageSource;
+exports.getLastPackageSource = getLastPackageSource;
+/**
+ * Fetches the GNAF package data from the AddressKit mirror with fallback to data.gov.au.
+ *
+ * This function implements a multi-tier fetching strategy:
+ * 1. Check local cache (if fresh, use cached data)
+ * 2. Try AddressKit CDN mirror (https://dl.addresskit.com.au) for fast, reliable downloads
+ * 3. Fall back to data.gov.au if mirror is unavailable
+ * 4. Use stale cache as last resort if all network requests fail
+ *
+ * The mirror is preferred because:
+ * - Faster downloads via Cloudflare CDN
+ * - More reliable than direct government server connections
+ * - Retry logic handled at the CDN level
  *
  * @alias fetchPackageData
  *
  * @returns {Promise<got.Response<string>>} The GNAF package data.
- * @throws {Error} If the GNAF package data cannot be fetched.
+ * @throws {Error} If the GNAF package data cannot be fetched from any source.
  */
 const fetchGNAFPackageData = async () => {
-    // Get the GNAF package URL
-    const packageUrl = conf_1.GNAF_PACKAGE_URL;
-    // See if we have the value in cache
-    const cachedResponse = await index_1.cache.get(packageUrl);
+    // Get the primary and fallback URLs
+    const mirrorUrl = conf_1.GNAF_MIRROR_URL;
+    const upstreamUrl = conf_1.GNAF_PACKAGE_URL;
+    // See if we have the value in cache (use upstream URL as cache key for consistency)
+    const cachedResponse = await index_1.cache.get(upstreamUrl);
     if (config_1.VERBOSE)
         (0, index_1.logger)("cached gnaf package data", cachedResponse);
     // Get the age of the cached response
@@ -81,45 +104,105 @@ const fetchGNAFPackageData = async () => {
         age = Date.now() - created.getTime();
         // If the age is less than or equal to one day, return the cached response
         if (age <= conf_1.ONE_DAY_MS) {
+            lastPackageSource = "cache";
             return cachedResponse;
         }
     }
     // cached value was older than one day, so go fetch
-    try {
-        // Fetch the GNAF package data
-        const response = await index_1.gotClient.get(packageUrl);
-        if (config_1.VERBOSE)
-            (0, index_1.logger)("response.isFromCache", response.fromCache);
-        if (config_1.VERBOSE)
-            (0, index_1.logger)("fresh gnaf package data", {
-                body: response.body,
-                headers: response.headers,
+    // Try mirror first if enabled, then fall back to upstream
+    const sources = conf_1.GNAF_USE_MIRROR
+        ? [
+            { url: mirrorUrl, name: "mirror", isMirror: true },
+            { url: upstreamUrl, name: "upstream", isMirror: false },
+        ]
+        : [{ url: upstreamUrl, name: "upstream", isMirror: false }];
+    let lastError;
+    for (const source of sources) {
+        try {
+            if (config_1.VERBOSE)
+                (0, index_1.logger)(`Trying ${source.name}: ${source.url}`);
+            // Fetch the GNAF package data
+            const response = await index_1.gotClient.get(source.url, {
+                timeout: { request: 30000 }, // 30 second timeout
             });
-        // Set the cache response
-        await index_1.cache.set(packageUrl, {
-            body: response.body,
-            headers: response.headers,
-            cachedAt: Date.now(),
-        });
-        // Set the cache header to MISS
-        response.headers["x-cache"] = response.fromCache ? "HIT" : "MISS";
-        // Return the response
-        return response;
-    }
-    catch (error_) {
-        // We were unable to fetch. If we have cached value that isn't stale, return in
-        if (cachedResponse !== undefined) {
-            // If the age is less than 30 days, return the cached response
-            if (age < conf_1.THIRTY_DAYS_MS) {
-                // Set the cache header to STALE
-                cachedResponse.headers.warning =
-                    '110	custom/1.0 "Response is Stale"';
-                return cachedResponse;
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("response.isFromCache", response.fromCache);
+            // Parse the response body
+            let packageData;
+            try {
+                packageData = JSON.parse(response.body);
+            }
+            catch {
+                throw new Error(`Invalid JSON response from ${source.name}`);
+            }
+            // If this is the mirror, extract the original_package data
+            // The mirror config wraps the package_show response
+            let finalBody;
+            if (source.isMirror && packageData.original_package) {
+                // Mirror returns { original_package: { result: { resources: [...] }, ... } }
+                finalBody = JSON.stringify(packageData.original_package);
+                (0, helpers_1.logInfo)(`Using AddressKit CDN mirror (synced: ${packageData.synced_at ?? "unknown"})`);
+            }
+            else {
+                // Direct response from data.gov.au
+                finalBody = response.body;
+                if (source.name === "upstream" && sources.length > 1) {
+                    (0, helpers_1.logWarning)("Mirror unavailable, using data.gov.au directly");
+                }
+            }
+            // Verify the response has the expected structure
+            const parsed = JSON.parse(finalBody);
+            if (!parsed.success || !parsed.result?.resources) {
+                throw new Error(`Invalid package data structure from ${source.name}`);
+            }
+            if (config_1.VERBOSE)
+                (0, index_1.logger)("fresh gnaf package data", {
+                    body: `${finalBody.slice(0, 500)}...`,
+                    source: source.name,
+                });
+            // Set the cache response (use upstream URL as cache key)
+            await index_1.cache.set(upstreamUrl, {
+                body: finalBody,
+                headers: response.headers,
+                cachedAt: Date.now(),
+            });
+            // Set the cache header
+            response.headers["x-cache"] = response.fromCache ? "HIT" : "MISS";
+            response.headers["x-source"] = source.name;
+            // Track the source
+            lastPackageSource = source.name;
+            // Create a synthetic response with the correct body
+            const syntheticResponse = {
+                ...response,
+                body: finalBody,
+            };
+            return syntheticResponse;
+        }
+        catch (error_) {
+            lastError = error_;
+            if (config_1.VERBOSE)
+                (0, index_1.logger)(`Failed to fetch from ${source.name}: ${lastError.message}`);
+            // If this isn't the last source, log and continue to next source
+            if (source !== sources[sources.length - 1]) {
+                (0, helpers_1.logWarning)(`${source.name === "mirror" ? "Mirror" : "Upstream"} fetch failed, trying ${source.name === "mirror" ? "upstream" : "next source"}...`);
             }
         }
-        // Otherwise, throw the original network error
-        throw error_;
     }
+    // All sources failed - try to use stale cache as last resort
+    if (cachedResponse !== undefined) {
+        // If the age is less than 30 days, return the cached response
+        if (age < conf_1.THIRTY_DAYS_MS) {
+            (0, helpers_1.logWarning)("All sources failed, using stale cached data (may be outdated)");
+            // Set the cache header to STALE
+            cachedResponse.headers.warning =
+                '110	custom/1.0 "Response is Stale"';
+            lastPackageSource = "cache";
+            return cachedResponse;
+        }
+    }
+    // Otherwise, throw the last network error
+    throw (lastError ??
+        new Error("Failed to fetch GNAF package data from any source"));
 };
 /**
  * Fetches the GNAF file from the cache (if fresh enough content exists), or if it is not fresh or doesn't
@@ -222,12 +305,31 @@ const fetchGNAFArchive = async () => {
             : (0, helpers_1.startSpinner)("Downloading G-NAF data file...");
         const downloadStartTime = Date.now();
         try {
-            // Download the GNAF file with progress callback and resume support
+            // Download the GNAF file with progress callback, resume support, and retry logic
             await (0, stream_down_1.default)({
                 url: dataResource.url,
                 destinationPath: incompleteFile,
                 expectedSize: dataResource.size,
                 enableResume: true,
+                // Retry configuration for handling transient network errors (ECONNRESET, etc.)
+                retry: {
+                    maxRetries: conf_1.DOWNLOAD_MAX_RETRIES,
+                    initialBackoff: conf_1.DOWNLOAD_BACKOFF_INITIAL,
+                    maxBackoff: conf_1.DOWNLOAD_BACKOFF_MAX,
+                    backoffMultiplier: 2,
+                    onRetry: (attempt, err, nextDelayMs) => {
+                        // Log retry information to help with debugging
+                        const errCode = err.code ??
+                            "UNKNOWN";
+                        (0, helpers_1.logWarning)(`Download interrupted (${errCode}). Retry ${attempt}/${conf_1.DOWNLOAD_MAX_RETRIES} in ${(0, helpers_1.formatDuration)(nextDelayMs)}...`);
+                        (0, helpers_1.updateSpinner)(`Retrying download (attempt ${attempt + 1}/${conf_1.DOWNLOAD_MAX_RETRIES + 1})...`);
+                    },
+                },
+                // Timeout configuration to prevent indefinite hangs
+                timeout: {
+                    socketTimeout: conf_1.DOWNLOAD_SOCKET_TIMEOUT,
+                    connectTimeout: conf_1.DOWNLOAD_CONNECT_TIMEOUT,
+                },
                 onIncompleteDetected: (existing, expected) => {
                     isResuming = true;
                     if (config_1.VERBOSE)
@@ -247,8 +349,12 @@ const fetchGNAFArchive = async () => {
                     const resumeIndicator = progress.isResuming
                         ? helpers_1.theme.secondary(" (resumed)")
                         : "";
+                    // Show retry indicator if retrying
+                    const retryIndicator = progress.retryAttempt && progress.retryAttempt > 0
+                        ? helpers_1.theme.warning(` [retry ${progress.retryAttempt}]`)
+                        : "";
                     // Update spinner text with beautiful progress info
-                    (0, helpers_1.updateSpinner)(`Downloading G-NAF${resumeIndicator}  ${progressBar}  ${helpers_1.theme.muted(`${downloaded} / ${total}`)}  ${helpers_1.theme.secondary(`${speed}/s`)}  ${helpers_1.theme.dim(`ETA: ${eta}`)}`);
+                    (0, helpers_1.updateSpinner)(`Downloading G-NAF${resumeIndicator}${retryIndicator}  ${progressBar}  ${helpers_1.theme.muted(`${downloaded} / ${total}`)}  ${helpers_1.theme.secondary(`${speed}/s`)}  ${helpers_1.theme.dim(`ETA: ${eta}`)}`);
                 },
             });
             // Verify downloaded file size

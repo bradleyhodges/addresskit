@@ -118,7 +118,7 @@ program
     .command("start")
     .description("Start the REST API server")
     .option("-d, --daemon", "Run in background (daemon) mode", false)
-    .option("-p, --port <port>", "Port to listen on", process.env.PORT || "8080")
+    .option("-p, --port <port>", "Port to listen on", process.env.PORT || "7234")
     .action(async (options) => {
     // Set daemon mode based on CLI flag
     (0, terminalUI_1.setDaemonMode)(options.daemon);

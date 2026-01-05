@@ -39,7 +39,7 @@ var version;
 var init_version = __esm({
   "packages/core/version.ts"() {
     "use strict";
-    version = "2.4.4";
+    version = "3.0.0";
   }
 });
 
@@ -12152,7 +12152,7 @@ var require_Transport = __commonJS({
         });
         const maxRetries = isStream(params.body) || isStream(params.bulkBody) ? 0 : typeof options.maxRetries === "number" ? options.maxRetries : this.maxRetries;
         const compression = options.compression !== void 0 ? options.compression : this.compression;
-        let request = { abort: noop };
+        let request2 = { abort: noop };
         const transportReturn = {
           then(onFulfilled, onRejected) {
             if (p != null) {
@@ -12166,7 +12166,7 @@ var require_Transport = __commonJS({
           },
           abort() {
             meta.aborted = true;
-            request.abort();
+            request2.abort();
             debug8("Aborting request", params);
             return this;
           },
@@ -12185,7 +12185,7 @@ var require_Transport = __commonJS({
             return process.nextTick(callback, new NoLivingConnectionsError(), result);
           }
           this.emit("request", null, result);
-          request = meta.connection.request(params, onResponse);
+          request2 = meta.connection.request(params, onResponse);
         };
         const onConnectionError = (err) => {
           if (err.name !== "RequestAbortedError") {
@@ -12432,11 +12432,11 @@ var require_Transport = __commonJS({
           opts = { reason: _Transport.sniffReasons.DEFAULT };
         }
         const { reason } = opts;
-        const request = {
+        const request2 = {
           method: "GET",
           path: this.sniffEndpoint
         };
-        this.request(request, { id: opts.requestId }, (err, result) => {
+        this.request(request2, { id: opts.requestId }, (err, result) => {
           this._isSniffing = false;
           if (this._sniffEnabled === true) {
             this._nextSniff = Date.now() + this.sniffInterval;
@@ -12608,9 +12608,9 @@ var require_hpagent = __commonJS({
         if (this.proxy.protocol === "https:") {
           requestOptions.servername = this.proxy.hostname;
         }
-        const request = (this.proxy.protocol === "http:" ? http : https).request(requestOptions);
-        request.once("connect", (response, socket, head) => {
-          request.removeAllListeners();
+        const request2 = (this.proxy.protocol === "http:" ? http : https).request(requestOptions);
+        request2.once("connect", (response, socket, head) => {
+          request2.removeAllListeners();
           socket.removeAllListeners();
           if (response.statusCode === 200) {
             callback(null, socket);
@@ -12619,14 +12619,14 @@ var require_hpagent = __commonJS({
             callback(new Error(`Bad response: ${response.statusCode}`), null);
           }
         });
-        request.once("timeout", () => {
-          request.destroy(new Error("Proxy timeout"));
+        request2.once("timeout", () => {
+          request2.destroy(new Error("Proxy timeout"));
         });
-        request.once("error", (err) => {
-          request.removeAllListeners();
+        request2.once("error", (err) => {
+          request2.removeAllListeners();
           callback(err, null);
         });
-        request.end();
+        request2.end();
       }
     };
     var HttpsProxyAgent = class extends https.Agent {
@@ -12655,9 +12655,9 @@ var require_hpagent = __commonJS({
         if (this.proxy.protocol === "https:") {
           requestOptions.servername = this.proxy.hostname;
         }
-        const request = (this.proxy.protocol === "http:" ? http : https).request(requestOptions);
-        request.once("connect", (response, socket, head) => {
-          request.removeAllListeners();
+        const request2 = (this.proxy.protocol === "http:" ? http : https).request(requestOptions);
+        request2.once("connect", (response, socket, head) => {
+          request2.removeAllListeners();
           socket.removeAllListeners();
           if (response.statusCode === 200) {
             const secureSocket = super.createConnection({ ...options, socket });
@@ -12667,14 +12667,14 @@ var require_hpagent = __commonJS({
             callback(new Error(`Bad response: ${response.statusCode}`), null);
           }
         });
-        request.once("timeout", () => {
-          request.destroy(new Error("Proxy timeout"));
+        request2.once("timeout", () => {
+          request2.destroy(new Error("Proxy timeout"));
         });
-        request.once("error", (err) => {
-          request.removeAllListeners();
+        request2.once("error", (err) => {
+          request2.removeAllListeners();
           callback(err, null);
         });
-        request.end();
+        request2.end();
       }
     };
     module2.exports = {
@@ -12751,7 +12751,7 @@ var require_Connection = __commonJS({
           } };
         }
         debug8("Starting a new request", params);
-        const request = this.makeRequest(requestParams);
+        const request2 = this.makeRequest(requestParams);
         const onResponse = (response) => {
           cleanListeners();
           this._openRequests--;
@@ -12760,9 +12760,9 @@ var require_Connection = __commonJS({
         const onTimeout = () => {
           cleanListeners();
           this._openRequests--;
-          request.once("error", () => {
+          request2.once("error", () => {
           });
-          request.abort();
+          request2.abort();
           callback(new TimeoutError("Request timed out", params), null);
         };
         const onError = (err) => {
@@ -12772,19 +12772,19 @@ var require_Connection = __commonJS({
         };
         const onAbort = () => {
           cleanListeners();
-          request.once("error", () => {
+          request2.once("error", () => {
           });
           debug8("Request aborted", params);
           this._openRequests--;
           callback(new RequestAbortedError("Request aborted"), null);
         };
-        request.on("response", onResponse);
-        request.on("timeout", onTimeout);
-        request.on("error", onError);
-        request.on("abort", onAbort);
-        request.setNoDelay(true);
+        request2.on("response", onResponse);
+        request2.on("timeout", onTimeout);
+        request2.on("error", onError);
+        request2.on("abort", onAbort);
+        request2.setNoDelay(true);
         if (isStream(params.body) === true) {
-          pipeline(params.body, request, (err) => {
+          pipeline(params.body, request2, (err) => {
             if (err != null && cleanedListeners === false) {
               cleanListeners();
               this._openRequests--;
@@ -12792,14 +12792,14 @@ var require_Connection = __commonJS({
             }
           });
         } else {
-          request.end(params.body);
+          request2.end(params.body);
         }
-        return request;
+        return request2;
         function cleanListeners() {
-          request.removeListener("response", onResponse);
-          request.removeListener("timeout", onTimeout);
-          request.removeListener("error", onError);
-          request.removeListener("abort", onAbort);
+          request2.removeListener("response", onResponse);
+          request2.removeListener("timeout", onTimeout);
+          request2.removeListener("error", onError);
+          request2.removeListener("abort", onAbort);
           cleanedListeners = true;
         }
       }
@@ -12835,7 +12835,7 @@ var require_Connection = __commonJS({
       }
       buildRequestObject(params) {
         const url = this.url;
-        const request = {
+        const request2 = {
           protocol: url.protocol,
           hostname: url.hostname[0] === "[" ? url.hostname.slice(1, -1) : url.hostname,
           hash: url.hash,
@@ -12853,21 +12853,21 @@ var require_Connection = __commonJS({
         for (let i = 0, len = paramsKeys.length; i < len; i++) {
           const key = paramsKeys[i];
           if (key === "path") {
-            request.pathname = resolve2(request.pathname, params[key]);
+            request2.pathname = resolve2(request2.pathname, params[key]);
           } else if (key === "querystring" && !!params[key] === true) {
-            if (request.search === "") {
-              request.search = "?" + params[key];
+            if (request2.search === "") {
+              request2.search = "?" + params[key];
             } else {
-              request.search += "&" + params[key];
+              request2.search += "&" + params[key];
             }
           } else if (key === "headers") {
-            request.headers = Object.assign({}, request.headers, params.headers);
+            request2.headers = Object.assign({}, request2.headers, params.headers);
           } else {
-            request[key] = params[key];
+            request2[key] = params[key];
           }
         }
-        request.path = request.pathname + request.search;
-        return request;
+        request2.path = request2.pathname + request2.search;
+        return request2;
       }
       // Handles console.log and utils.inspect invocations.
       // We want to hide `auth`, `agent` and `ssl` since they made
@@ -13416,7 +13416,7 @@ var require_Helpers = __commonJS({
     var { promisify } = require("util");
     var { ResponseError, ConfigurationError } = require_errors2();
     var pImmediate = promisify(setImmediate);
-    var sleep = promisify(setTimeout);
+    var sleep2 = promisify(setTimeout);
     var kClient = /* @__PURE__ */ Symbol("opensearch-client");
     var kMetaHeader = /* @__PURE__ */ Symbol("meta header");
     var noop = () => {
@@ -13476,7 +13476,7 @@ var require_Helpers = __commonJS({
         for (let i = 0; i <= maxRetries; i++) {
           response = await this[kClient].search(params, options);
           if (response.statusCode !== 429) break;
-          await sleep(wait);
+          await sleep2(wait);
         }
         if (response.statusCode === 429) {
           throw new ResponseError(response);
@@ -13505,7 +13505,7 @@ var require_Helpers = __commonJS({
               options
             );
             if (response.statusCode !== 429) break;
-            await sleep(wait);
+            await sleep2(wait);
           }
           if (response.statusCode === 429) {
             throw new ResponseError(response);
@@ -15523,13 +15523,13 @@ var require_bulk = __commonJS({
         if (method == null) method = "POST";
         path5 = "/_bulk";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         bulkBody: body,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = bulkApi;
   }
@@ -15610,13 +15610,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/aliases";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.allocation = function catAllocationApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15630,13 +15630,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/allocation";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.count = function catCountApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15650,13 +15650,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/count";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.fielddata = function catFielddataApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15670,13 +15670,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/fielddata";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.health = function catHealthApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15685,13 +15685,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/health";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.help = function catHelpApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15700,13 +15700,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.indices = function catIndicesApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15720,13 +15720,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/indices";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.cluster_manager = function catClusterManagerApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15735,13 +15735,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/cluster_manager";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.master = function catMasterApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15750,13 +15750,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/master";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.nodeattrs = function catNodeattrsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15765,13 +15765,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/nodeattrs";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.nodes = function catNodesApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15780,13 +15780,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/nodes";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.pendingTasks = function catPendingTasksApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15795,13 +15795,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/pending_tasks";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.plugins = function catPluginsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15810,13 +15810,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/plugins";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.recovery = function catRecoveryApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15830,13 +15830,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/recovery";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.repositories = function catRepositoriesApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15845,13 +15845,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/repositories";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.segments = function catSegmentsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15865,13 +15865,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/segments";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.shards = function catShardsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15885,13 +15885,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/shards";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.snapshots = function catSnapshotsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15905,13 +15905,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/snapshots";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.tasks = function catTasksApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15920,13 +15920,13 @@ var require_cat = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cat/tasks";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.templates = function catTemplatesApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15940,13 +15940,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/templates";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     CatApi.prototype.threadPool = function catThreadPoolApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -15960,13 +15960,13 @@ var require_cat = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cat/thread_pool";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(CatApi.prototype, {
       pending_tasks: {
@@ -16003,13 +16003,13 @@ var require_clear_scroll = __commonJS({
         if (method == null) method = "DELETE";
         path5 = "/_search/scroll";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = clearScrollApi;
   }
@@ -16092,13 +16092,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = body == null ? "GET" : "POST";
       path5 = "/_cluster/allocation/explain";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.deleteComponentTemplate = function clusterDeleteComponentTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16111,13 +16111,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_component_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.deleteVotingConfigExclusions = function clusterDeleteVotingConfigExclusionsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16126,13 +16126,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_cluster/voting_config_exclusions";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.existsComponentTemplate = function clusterExistsComponentTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16145,13 +16145,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "HEAD";
       path5 = "/_component_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.getComponentTemplate = function clusterGetComponentTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16165,13 +16165,13 @@ var require_cluster = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_component_template";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.getSettings = function clusterGetSettingsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16180,13 +16180,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cluster/settings";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.health = function clusterHealthApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16200,13 +16200,13 @@ var require_cluster = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cluster/health";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.pendingTasks = function clusterPendingTasksApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16215,13 +16215,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_cluster/pending_tasks";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.postVotingConfigExclusions = function clusterPostVotingConfigExclusionsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16230,13 +16230,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_cluster/voting_config_exclusions";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.putComponentTemplate = function clusterPutComponentTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16253,13 +16253,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_component_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.putSettings = function clusterPutSettingsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16272,13 +16272,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_cluster/settings";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.remoteInfo = function clusterRemoteInfoApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16287,13 +16287,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_remote/info";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.reroute = function clusterRerouteApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16302,13 +16302,13 @@ var require_cluster = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_cluster/reroute";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.state = function clusterStateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16329,13 +16329,13 @@ var require_cluster = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cluster/state";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ClusterApi.prototype.stats = function clusterStatsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16349,13 +16349,13 @@ var require_cluster = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_cluster/stats";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(ClusterApi.prototype, {
       allocation_explain: {
@@ -16475,13 +16475,13 @@ var require_count = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_count";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = countApi;
   }
@@ -16536,13 +16536,13 @@ var require_create = __commonJS({
         if (method == null) method = "PUT";
         path5 = "/" + encodeURIComponent(index) + "/_create/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = createApi;
   }
@@ -16585,13 +16585,13 @@ var require_create_pit = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/" + encodeURIComponent(index) + "/_search/point_in_time";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = createPitApi;
   }
@@ -16637,13 +16637,13 @@ var require_dangling_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_dangling/" + encodeURIComponent(index_uuid || indexUuid);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     DanglingIndicesApi.prototype.importDanglingIndex = function danglingIndicesImportDanglingIndexApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16658,13 +16658,13 @@ var require_dangling_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_dangling/" + encodeURIComponent(index_uuid || indexUuid);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     DanglingIndicesApi.prototype.listDanglingIndices = function danglingIndicesListDanglingIndicesApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -16673,13 +16673,13 @@ var require_dangling_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_dangling";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(DanglingIndicesApi.prototype, {
       delete_dangling_index: {
@@ -16750,13 +16750,13 @@ var require_delete = __commonJS({
         if (method == null) method = "DELETE";
         path5 = "/" + encodeURIComponent(index) + "/_doc/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = deleteApi;
   }
@@ -16776,13 +16776,13 @@ var require_delete_all_pits = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_search/point_in_time/_all";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = deleteAllPitsApi;
   }
@@ -16881,13 +16881,13 @@ var require_delete_by_query = __commonJS({
         if (method == null) method = "POST";
         path5 = "/" + encodeURIComponent(index) + "/_delete_by_query";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = deleteByQueryApi;
   }
@@ -16928,13 +16928,13 @@ var require_delete_by_query_rethrottle = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_delete_by_query/" + encodeURIComponent(task_id || taskId) + "/_rethrottle";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = deleteByQueryRethrottleApi;
   }
@@ -16958,13 +16958,13 @@ var require_delete_pit = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_search/point_in_time";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = deletePitApi;
   }
@@ -17002,13 +17002,13 @@ var require_delete_script = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_scripts/" + encodeURIComponent(id);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = deleteScriptApi;
   }
@@ -17068,13 +17068,13 @@ var require_exists = __commonJS({
         if (method == null) method = "HEAD";
         path5 = "/" + encodeURIComponent(index) + "/_doc/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = existsApi;
   }
@@ -17139,13 +17139,13 @@ var require_exists_source = __commonJS({
         if (method == null) method = "HEAD";
         path5 = "/" + encodeURIComponent(index) + "/_source/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = existsSourceApi;
   }
@@ -17208,13 +17208,13 @@ var require_explain = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/" + encodeURIComponent(index) + "/_explain/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = explainApi;
   }
@@ -17251,13 +17251,13 @@ var require_features = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_features";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     FeaturesApi.prototype.resetFeatures = function featuresResetFeaturesApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17266,13 +17266,13 @@ var require_features = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_features/_reset";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(FeaturesApi.prototype, {
       get_features: {
@@ -17327,13 +17327,13 @@ var require_field_caps = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_field_caps";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = fieldCapsApi;
   }
@@ -17393,13 +17393,13 @@ var require_get = __commonJS({
         if (method == null) method = "GET";
         path5 = "/" + encodeURIComponent(index) + "/_doc/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = getApi;
   }
@@ -17419,13 +17419,13 @@ var require_get_all_pits = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_search/point_in_time/_all";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = getAllPitsApi;
   }
@@ -17462,13 +17462,13 @@ var require_get_script = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_scripts/" + encodeURIComponent(id);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = getScriptApi;
   }
@@ -17488,13 +17488,13 @@ var require_get_script_context = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_script_context";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = getScriptContextApi;
   }
@@ -17514,13 +17514,13 @@ var require_get_script_languages = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_script_language";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = getScriptLanguagesApi;
   }
@@ -17578,13 +17578,13 @@ var require_get_source = __commonJS({
         if (method == null) method = "GET";
         path5 = "/" + encodeURIComponent(index) + "/_source/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = getSourceApi;
   }
@@ -17699,13 +17699,13 @@ var require_api = __commonJS({
         if (method == null) method = "POST";
         path5 = "/" + encodeURIComponent(index) + "/_doc";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = indexApi;
   }
@@ -17828,13 +17828,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/" + encodeURIComponent(index) + "/_block/" + encodeURIComponent(block);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.analyze = function indicesAnalyzeApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17848,13 +17848,13 @@ var require_indices = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_analyze";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.clearCache = function indicesClearCacheApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17868,13 +17868,13 @@ var require_indices = __commonJS({
         if (method == null) method = "POST";
         path5 = "/_cache/clear";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.clone = function indicesCloneApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17895,13 +17895,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/" + encodeURIComponent(index) + "/_clone/" + encodeURIComponent(target);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.close = function indicesCloseApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17914,13 +17914,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/" + encodeURIComponent(index) + "/_close";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.create = function indicesCreateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17933,13 +17933,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/" + encodeURIComponent(index);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.delete = function indicesDeleteApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17952,13 +17952,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/" + encodeURIComponent(index);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.deleteAlias = function indicesDeleteAliasApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -17984,13 +17984,13 @@ var require_indices = __commonJS({
         if (method == null) method = "DELETE";
         path5 = "/" + encodeURIComponent(index) + "/_aliases/" + encodeURIComponent(name);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.deleteIndexTemplate = function indicesDeleteIndexTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18003,13 +18003,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_index_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.deleteTemplate = function indicesDeleteTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18022,13 +18022,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.diskUsage = function indicesDiskUsageApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18041,13 +18041,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/" + encodeURIComponent(index) + "/_disk_usage";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.exists = function indicesExistsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18060,13 +18060,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "HEAD";
       path5 = "/" + encodeURIComponent(index);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.existsAlias = function indicesExistsAliasApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18084,13 +18084,13 @@ var require_indices = __commonJS({
         if (method == null) method = "HEAD";
         path5 = "/_alias/" + encodeURIComponent(name);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.existsIndexTemplate = function indicesExistsIndexTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18103,13 +18103,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "HEAD";
       path5 = "/_index_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.existsTemplate = function indicesExistsTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18122,13 +18122,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "HEAD";
       path5 = "/_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.fieldUsageStats = function indicesFieldUsageStatsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18141,13 +18141,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/" + encodeURIComponent(index) + "/_field_usage_stats";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.flush = function indicesFlushApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18161,13 +18161,13 @@ var require_indices = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_flush";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.forcemerge = function indicesForcemergeApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18181,13 +18181,13 @@ var require_indices = __commonJS({
         if (method == null) method = "POST";
         path5 = "/_forcemerge";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.get = function indicesGetApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18200,13 +18200,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/" + encodeURIComponent(index);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.getAlias = function indicesGetAliasApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18226,13 +18226,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_alias";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.getFieldMapping = function indicesGetFieldMappingApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18256,13 +18256,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_mapping/field/" + encodeURIComponent(fields);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.getIndexTemplate = function indicesGetIndexTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18276,13 +18276,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_index_template";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.getMapping = function indicesGetMappingApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18302,13 +18302,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_mapping";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.getSettings = function indicesGetSettingsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18328,13 +18328,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_settings";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.getTemplate = function indicesGetTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18348,13 +18348,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_template";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.getUpgrade = function indicesGetUpgradeApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18363,13 +18363,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/" + encodeURIComponent(index) + "/_upgrade";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.open = function indicesOpenApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18382,13 +18382,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/" + encodeURIComponent(index) + "/_open";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.putAlias = function indicesPutAliasApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18414,13 +18414,13 @@ var require_indices = __commonJS({
         if (method == null) method = "PUT";
         path5 = "/" + encodeURIComponent(index) + "/_aliases/" + encodeURIComponent(name);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.putIndexTemplate = function indicesPutIndexTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18437,13 +18437,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_index_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.putMapping = function indicesPutMappingApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18479,13 +18479,13 @@ var require_indices = __commonJS({
         if (method == null) method = "PUT";
         path5 = "/_mapping/" + encodeURIComponent(type);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.putSettings = function indicesPutSettingsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18503,13 +18503,13 @@ var require_indices = __commonJS({
         if (method == null) method = "PUT";
         path5 = "/_settings";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.putTemplate = function indicesPutTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18526,13 +18526,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_template/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.recovery = function indicesRecoveryApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18546,13 +18546,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_recovery";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.refresh = function indicesRefreshApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18566,13 +18566,13 @@ var require_indices = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_refresh";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.resolveIndex = function indicesResolveIndexApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18585,13 +18585,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_resolve/index/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.rollover = function indicesRolloverApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18613,13 +18613,13 @@ var require_indices = __commonJS({
         if (method == null) method = "POST";
         path5 = "/" + encodeURIComponent(alias) + "/_rollover";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.segments = function indicesSegmentsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18633,13 +18633,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_segments";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.shardStores = function indicesShardStoresApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18653,13 +18653,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_shard_stores";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.shrink = function indicesShrinkApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18680,13 +18680,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/" + encodeURIComponent(index) + "/_shrink/" + encodeURIComponent(target);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.simulateIndexTemplate = function indicesSimulateIndexTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18699,13 +18699,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_index_template/_simulate_index/" + encodeURIComponent(name);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.simulateTemplate = function indicesSimulateTemplateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18719,13 +18719,13 @@ var require_indices = __commonJS({
         if (method == null) method = "POST";
         path5 = "/_index_template/_simulate";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.split = function indicesSplitApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18746,13 +18746,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/" + encodeURIComponent(index) + "/_split/" + encodeURIComponent(target);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.stats = function indicesStatsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18772,13 +18772,13 @@ var require_indices = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_stats";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.updateAliases = function indicesUpdateAliasesApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18791,13 +18791,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_aliases";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.upgrade = function indicesUpgradeApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18806,13 +18806,13 @@ var require_indices = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/" + encodeURIComponent(index) + "/_upgrade";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IndicesApi.prototype.validateQuery = function indicesValidateQueryApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -18833,13 +18833,13 @@ var require_indices = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_validate/query";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(IndicesApi.prototype, {
       add_block: {
@@ -19001,13 +19001,13 @@ var require_info = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = infoApi;
   }
@@ -19051,13 +19051,13 @@ var require_ingest = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_ingest/pipeline/" + encodeURIComponent(id);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IngestApi.prototype.geoIpStats = function ingestGeoIpStatsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19066,13 +19066,13 @@ var require_ingest = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_ingest/geoip/stats";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IngestApi.prototype.getPipeline = function ingestGetPipelineApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19086,13 +19086,13 @@ var require_ingest = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_ingest/pipeline";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IngestApi.prototype.processorGrok = function ingestProcessorGrokApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19101,13 +19101,13 @@ var require_ingest = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_ingest/processor/grok";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IngestApi.prototype.putPipeline = function ingestPutPipelineApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19124,13 +19124,13 @@ var require_ingest = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_ingest/pipeline/" + encodeURIComponent(id);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     IngestApi.prototype.simulate = function ingestSimulateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19148,13 +19148,13 @@ var require_ingest = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_ingest/pipeline/_simulate";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(IngestApi.prototype, {
       delete_pipeline: {
@@ -19241,13 +19241,13 @@ var require_mget = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_mget";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = mgetApi;
   }
@@ -19306,13 +19306,13 @@ var require_msearch = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_msearch";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         bulkBody: body,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = msearchApi;
   }
@@ -19367,13 +19367,13 @@ var require_msearch_template = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_msearch/template";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         bulkBody: body,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = msearchTemplateApi;
   }
@@ -19429,13 +19429,13 @@ var require_mtermvectors = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_mtermvectors";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = mtermvectorsApi;
   }
@@ -19503,13 +19503,13 @@ var require_nodes = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_nodes/" + encodeURIComponent(node_id || nodeId) + "/_repositories_metering/" + encodeURIComponent(max_archive_version || maxArchiveVersion);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     NodesApi.prototype.getMeteringInfo = function nodesGetMeteringInfoApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19522,13 +19522,13 @@ var require_nodes = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_nodes/" + encodeURIComponent(node_id || nodeId) + "/_repositories_metering";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     NodesApi.prototype.hotThreads = function nodesHotThreadsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19551,13 +19551,13 @@ var require_nodes = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_nodes/hot_threads";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     NodesApi.prototype.info = function nodesInfoApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19577,13 +19577,13 @@ var require_nodes = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_nodes";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     NodesApi.prototype.reloadSecureSettings = function nodesReloadSecureSettingsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19597,13 +19597,13 @@ var require_nodes = __commonJS({
         if (method == null) method = "POST";
         path5 = "/_nodes/reload_secure_settings";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     NodesApi.prototype.stats = function nodesStatsApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19629,13 +19629,13 @@ var require_nodes = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_nodes/stats";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     NodesApi.prototype.usage = function nodesUsageApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -19655,13 +19655,13 @@ var require_nodes = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_nodes/usage";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(NodesApi.prototype, {
       clear_metering_archive: {
@@ -19703,13 +19703,13 @@ var require_ping = __commonJS({
       let path5 = "";
       if (method == null) method = "HEAD";
       path5 = "/";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = pingApi;
   }
@@ -19761,13 +19761,13 @@ var require_put_script = __commonJS({
         if (method == null) method = "PUT";
         path5 = "/_scripts/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = putScriptApi;
   }
@@ -19813,13 +19813,13 @@ var require_rank_eval = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_rank_eval";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = rankEvalApi;
   }
@@ -19864,13 +19864,13 @@ var require_reindex = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_reindex";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = reindexApi;
   }
@@ -19911,13 +19911,13 @@ var require_reindex_rethrottle = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_reindex/" + encodeURIComponent(task_id || taskId) + "/_rethrottle";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = reindexRethrottleApi;
   }
@@ -19942,13 +19942,13 @@ var require_render_search_template = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_render/template";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = renderSearchTemplateApi;
   }
@@ -20064,13 +20064,13 @@ var require_scripts_painless_execute = __commonJS({
       let path5 = "";
       if (method == null) method = body == null ? "GET" : "POST";
       path5 = "/_scripts/painless/_execute";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = scriptsPainlessExecuteApi;
   }
@@ -20109,13 +20109,13 @@ var require_scroll = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_search/scroll";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = scrollApi;
   }
@@ -21103,13 +21103,13 @@ var require_search = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_search";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = searchApi;
   }
@@ -21152,13 +21152,13 @@ var require_search_shards = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_search_shards";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = searchShardsApi;
   }
@@ -21224,13 +21224,13 @@ var require_search_template = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/_search/template";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = searchTemplateApi;
   }
@@ -21258,13 +21258,13 @@ var require_shutdown = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_nodes/" + encodeURIComponent(node_id || nodeId) + "/shutdown";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ShutdownApi.prototype.getNode = function shutdownGetNodeApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21278,13 +21278,13 @@ var require_shutdown = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_nodes/shutdown";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     ShutdownApi.prototype.putNode = function shutdownPutNodeApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21301,13 +21301,13 @@ var require_shutdown = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_nodes/" + encodeURIComponent(node_id || nodeId) + "/shutdown";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(ShutdownApi.prototype, {
       delete_node: {
@@ -21394,13 +21394,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/_cleanup";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.clone = function snapshotCloneApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21436,13 +21436,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/" + encodeURIComponent(snapshot) + "/_clone/" + encodeURIComponent(target_snapshot || targetSnapshot);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.create = function snapshotCreateApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21463,13 +21463,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/" + encodeURIComponent(snapshot);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.createRepository = function snapshotCreateRepositoryApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21486,13 +21486,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "PUT";
       path5 = "/_snapshot/" + encodeURIComponent(repository);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.delete = function snapshotDeleteApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21513,13 +21513,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/" + encodeURIComponent(snapshot);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.deleteRepository = function snapshotDeleteRepositoryApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21532,13 +21532,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "DELETE";
       path5 = "/_snapshot/" + encodeURIComponent(repository);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.get = function snapshotGetApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21559,13 +21559,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/" + encodeURIComponent(snapshot);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.getRepository = function snapshotGetRepositoryApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21579,13 +21579,13 @@ var require_snapshot = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_snapshot";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.repositoryAnalyze = function snapshotRepositoryAnalyzeApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21598,13 +21598,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/_analyze";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.restore = function snapshotRestoreApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21625,13 +21625,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/" + encodeURIComponent(snapshot) + "/_restore";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.status = function snapshotStatusApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21652,13 +21652,13 @@ var require_snapshot = __commonJS({
         if (method == null) method = "GET";
         path5 = "/_snapshot/_status";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     SnapshotApi.prototype.verifyRepository = function snapshotVerifyRepositoryApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21671,13 +21671,13 @@ var require_snapshot = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_snapshot/" + encodeURIComponent(repository) + "/_verify";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     Object.defineProperties(SnapshotApi.prototype, {
       cleanup_repository: {
@@ -21757,13 +21757,13 @@ var require_tasks = __commonJS({
         if (method == null) method = "POST";
         path5 = "/_tasks/_cancel";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     TasksApi.prototype.get = function tasksGetApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21776,13 +21776,13 @@ var require_tasks = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_tasks/" + encodeURIComponent(task_id || taskId);
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     TasksApi.prototype.list = function tasksListApi(params, options, callback) {
       [params, options, callback] = normalizeArguments(params, options, callback);
@@ -21791,13 +21791,13 @@ var require_tasks = __commonJS({
       let path5 = "";
       if (method == null) method = "GET";
       path5 = "/_tasks";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: null,
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     };
     module2.exports = TasksApi;
   }
@@ -21821,13 +21821,13 @@ var require_terms_enum = __commonJS({
       let path5 = "";
       if (method == null) method = body == null ? "GET" : "POST";
       path5 = "/" + encodeURIComponent(index) + "/_terms_enum";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = termsEnumApi;
   }
@@ -21885,13 +21885,13 @@ var require_termvectors = __commonJS({
         if (method == null) method = body == null ? "GET" : "POST";
         path5 = "/" + encodeURIComponent(index) + "/_termvectors";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = termvectorsApi;
   }
@@ -22072,13 +22072,13 @@ var require_update = __commonJS({
         if (method == null) method = "POST";
         path5 = "/" + encodeURIComponent(index) + "/_update/" + encodeURIComponent(id);
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = updateApi;
   }
@@ -22176,13 +22176,13 @@ var require_update_by_query = __commonJS({
         if (method == null) method = "POST";
         path5 = "/" + encodeURIComponent(index) + "/_update_by_query";
       }
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = updateByQueryApi;
   }
@@ -22223,13 +22223,13 @@ var require_update_by_query_rethrottle = __commonJS({
       let path5 = "";
       if (method == null) method = "POST";
       path5 = "/_update_by_query/" + encodeURIComponent(task_id || taskId) + "/_rethrottle";
-      const request = {
+      const request2 = {
         method,
         path: path5,
         body: body || "",
         querystring
       };
-      return this.transport.request(request, options, callback);
+      return this.transport.request(request2, options, callback);
     }
     module2.exports = updateByQueryRethrottleApi;
   }
@@ -24593,7 +24593,7 @@ var require_wait_port = __commonJS({
       return socket;
     }
     function checkHttp(socket, params, timeout, callback) {
-      const request = `GET ${params.path} HTTP/1.1\r
+      const request2 = `GET ${params.path} HTTP/1.1\r
 Host: ${params.host}\r
 \r
 `;
@@ -24618,7 +24618,7 @@ Host: ${params.host}\r
         debug8(`Successful HTTP status line: ${statusLine}`);
         callback();
       });
-      socket.write(request);
+      socket.write(request2);
     }
     function tryConnect(options, timeout) {
       return new Promise((resolve2, reject) => {
@@ -26417,20 +26417,20 @@ var require_http_cache_semantics = __commonJS({
        * @param {boolean} synchronous - whether revalidation must be synchronous (not s-w-r).
        * @returns {{headers: Record<string, string>, synchronous: boolean}} An object with revalidation headers and a synchronous flag.
        */
-      _evaluateRequestRevalidation(request, synchronous) {
+      _evaluateRequestRevalidation(request2, synchronous) {
         return {
           synchronous,
-          headers: this.revalidationHeaders(request)
+          headers: this.revalidationHeaders(request2)
         };
       }
       /**
        * @param {HttpRequest} request - new incoming
        * @returns {{response: undefined, revalidation: {headers: Record<string, string>, synchronous: boolean}}} An object indicating no cached response and revalidation details.
        */
-      _evaluateRequestMissResult(request) {
+      _evaluateRequestMissResult(request2) {
         return {
           response: void 0,
-          revalidation: this._evaluateRequestRevalidation(request, true)
+          revalidation: this._evaluateRequestRevalidation(request2, true)
         };
       }
       /**
@@ -26780,8 +26780,8 @@ var require_http_cache_semantics = __commonJS({
        * @returns {{policy: CachePolicy, modified: boolean, matches: boolean}} The updated policy and modification status.
        * @throws {Error} If the response headers are missing.
        */
-      revalidatedPolicy(request, response) {
-        this._assertRequestHasHeaders(request);
+      revalidatedPolicy(request2, response) {
+        this._assertRequestHasHeaders(request2);
         if (this._useStaleIfError() && isErrorResponse(response)) {
           return {
             policy: this,
@@ -26814,7 +26814,7 @@ var require_http_cache_semantics = __commonJS({
         };
         if (!matches) {
           return {
-            policy: new this.constructor(request, response, optionsCopy),
+            policy: new this.constructor(request2, response, optionsCopy),
             // Client receiving 304 without body, even if it's invalid/mismatched has no option
             // but to reuse a cached body. We don't have a good way to tell clients to do
             // error recovery in such case.
@@ -26832,7 +26832,7 @@ var require_http_cache_semantics = __commonJS({
           headers
         });
         return {
-          policy: new this.constructor(request, newResponse, optionsCopy),
+          policy: new this.constructor(request2, newResponse, optionsCopy),
           modified: false,
           matches: true
         };
@@ -27110,8 +27110,8 @@ var require_src5 = __commonJS({
     var cloneResponse = require_src3();
     var Keyv2 = require_src4();
     var CacheableRequest = class _CacheableRequest {
-      constructor(request, cacheAdapter) {
-        if (typeof request !== "function") {
+      constructor(request2, cacheAdapter) {
+        if (typeof request2 !== "function") {
           throw new TypeError("Parameter `request` must be a function");
         }
         this.cache = new Keyv2({
@@ -27119,9 +27119,9 @@ var require_src5 = __commonJS({
           store: typeof cacheAdapter !== "string" && cacheAdapter,
           namespace: "cacheable-request"
         });
-        return this.createCacheableRequest(request);
+        return this.createCacheableRequest(request2);
       }
-      createCacheableRequest(request) {
+      createCacheableRequest(request2) {
         return (opts, cb) => {
           let url;
           if (typeof opts === "string") {
@@ -27228,7 +27228,7 @@ var require_src5 = __commonJS({
               }
             };
             try {
-              const req = request(opts2, handler);
+              const req = request2(opts2, handler);
               req.once("error", requestErrorCallback);
               req.once("abort", requestErrorCallback);
               ee.emit("request", req);
@@ -27375,7 +27375,7 @@ var require_source2 = __commonJS({
   "node_modules/.pnpm/@szmarczak+http-timer@1.1.2/node_modules/@szmarczak/http-timer/source/index.js"(exports2, module2) {
     "use strict";
     var deferToConnect = require_dist2();
-    module2.exports = (request) => {
+    module2.exports = (request2) => {
       const timings = {
         start: Date.now(),
         socket: null,
@@ -27411,8 +27411,8 @@ var require_source2 = __commonJS({
         timings.upload = Date.now();
         timings.phases.request = timings.upload - timings.connect;
       };
-      handleError(request);
-      request.once("socket", (socket) => {
+      handleError(request2);
+      request2.once("socket", (socket) => {
         timings.socket = Date.now();
         timings.phases.wait = timings.socket - timings.start;
         const lookupListener = () => {
@@ -27433,13 +27433,13 @@ var require_source2 = __commonJS({
           }
         });
       });
-      request.once("finish", () => {
+      request2.once("finish", () => {
         uploadFinished = true;
         if (timings.connect) {
           onUpload();
         }
       });
-      request.once("response", (response) => {
+      request2.once("response", (response) => {
         timings.response = Date.now();
         timings.phases.firstByte = timings.response - timings.upload;
         handleError(response);
@@ -27470,11 +27470,11 @@ var require_timed_out = __commonJS({
     var reentry = /* @__PURE__ */ Symbol("reentry");
     var noop = () => {
     };
-    module2.exports = (request, delays, options) => {
-      if (request[reentry]) {
+    module2.exports = (request2, delays, options) => {
+      if (request2[reentry]) {
         return;
       }
-      request[reentry] = true;
+      request2[reentry] = true;
       let stopNewTimeouts = false;
       const addTimeout = (delay, callback, ...args) => {
         if (stopNewTimeouts) {
@@ -27499,18 +27499,18 @@ var require_timed_out = __commonJS({
       };
       const { host, hostname } = options;
       const timeoutHandler = (delay, event) => {
-        request.emit("error", new TimeoutError(delay, event));
-        request.once("error", () => {
+        request2.emit("error", new TimeoutError(delay, event));
+        request2.once("error", () => {
         });
-        request.abort();
+        request2.abort();
       };
       const cancelers = [];
       const cancelTimeouts = () => {
         stopNewTimeouts = true;
         cancelers.forEach((cancelTimeout) => cancelTimeout());
       };
-      request.once("error", cancelTimeouts);
-      request.once("response", (response) => {
+      request2.once("error", cancelTimeouts);
+      request2.once("response", (response) => {
         response.once("end", cancelTimeouts);
       });
       if (delays.request !== void 0) {
@@ -27520,11 +27520,11 @@ var require_timed_out = __commonJS({
         const socketTimeoutHandler = () => {
           timeoutHandler(delays.socket, "socket");
         };
-        request.setTimeout(delays.socket, socketTimeoutHandler);
-        cancelers.push(() => request.removeListener("timeout", socketTimeoutHandler));
+        request2.setTimeout(delays.socket, socketTimeoutHandler);
+        cancelers.push(() => request2.removeListener("timeout", socketTimeoutHandler));
       }
-      if (delays.lookup !== void 0 && !request.socketPath && !net.isIP(hostname || host)) {
-        request.once("socket", (socket) => {
+      if (delays.lookup !== void 0 && !request2.socketPath && !net.isIP(hostname || host)) {
+        request2.once("socket", (socket) => {
           if (socket.connecting) {
             const cancelTimeout = addTimeout(delays.lookup, timeoutHandler, "lookup");
             socket.once("lookup", cancelTimeout);
@@ -27532,10 +27532,10 @@ var require_timed_out = __commonJS({
         });
       }
       if (delays.connect !== void 0) {
-        request.once("socket", (socket) => {
+        request2.once("socket", (socket) => {
           if (socket.connecting) {
             const timeConnect = () => addTimeout(delays.connect, timeoutHandler, "connect");
-            if (request.socketPath || net.isIP(hostname || host)) {
+            if (request2.socketPath || net.isIP(hostname || host)) {
               socket.once("connect", timeConnect());
             } else {
               socket.once("lookup", (error8) => {
@@ -27548,7 +27548,7 @@ var require_timed_out = __commonJS({
         });
       }
       if (delays.secureConnect !== void 0 && options.protocol === "https:") {
-        request.once("socket", (socket) => {
+        request2.once("socket", (socket) => {
           if (socket.connecting) {
             socket.once("connect", () => {
               const cancelTimeout = addTimeout(delays.secureConnect, timeoutHandler, "secureConnect");
@@ -27558,21 +27558,21 @@ var require_timed_out = __commonJS({
         });
       }
       if (delays.send !== void 0) {
-        request.once("socket", (socket) => {
+        request2.once("socket", (socket) => {
           const timeRequest = () => addTimeout(delays.send, timeoutHandler, "send");
           if (socket.connecting) {
             socket.once("connect", () => {
-              request.once("upload-complete", timeRequest());
+              request2.once("upload-complete", timeRequest());
             });
           } else {
-            request.once("upload-complete", timeRequest());
+            request2.once("upload-complete", timeRequest());
           }
         });
       }
       if (delays.response !== void 0) {
-        request.once("upload-complete", () => {
+        request2.once("upload-complete", () => {
           const cancelTimeout = addTimeout(delays.response, timeoutHandler, "response");
-          request.once("response", cancelTimeout);
+          request2.once("response", cancelTimeout);
         });
       }
     };
@@ -27678,7 +27678,7 @@ var require_progress = __commonJS({
           }
         });
       },
-      upload(request, emitter, uploadBodySize) {
+      upload(request2, emitter, uploadBodySize) {
         const uploadEventFrequency = 150;
         let uploaded = 0;
         let progressInterval;
@@ -27687,10 +27687,10 @@ var require_progress = __commonJS({
           transferred: 0,
           total: uploadBodySize
         });
-        request.once("error", () => {
+        request2.once("error", () => {
           clearInterval(progressInterval);
         });
-        request.once("response", () => {
+        request2.once("response", () => {
           clearInterval(progressInterval);
           emitter.emit("uploadProgress", {
             percent: 1,
@@ -27698,11 +27698,11 @@ var require_progress = __commonJS({
             total: uploadBodySize
           });
         });
-        request.once("socket", (socket) => {
+        request2.once("socket", (socket) => {
           const onSocketConnect = () => {
             progressInterval = setInterval(() => {
               const lastUploaded = uploaded;
-              const headersSize = request._header ? Buffer.byteLength(request._header) : 0;
+              const headersSize = request2._header ? Buffer.byteLength(request2._header) : 0;
               uploaded = socket.bytesWritten - headersSize;
               if (uploaded === lastUploaded || uploaded === uploadBodySize) {
                 return;
@@ -27906,16 +27906,16 @@ var require_request_as_event_emitter = __commonJS({
             emitError(error8);
           }
         };
-        const handleRequest = (request) => {
+        const handleRequest = (request2) => {
           if (shouldAbort) {
-            request.once("error", () => {
+            request2.once("error", () => {
             });
-            request.abort();
+            request2.abort();
             return;
           }
-          currentRequest = request;
-          request.once("error", (error8) => {
-            if (request.aborted) {
+          currentRequest = request2;
+          request2.once("error", (error8) => {
+            if (request2.aborted) {
               return;
             }
             if (error8 instanceof timedOut.TimeoutError) {
@@ -27927,27 +27927,27 @@ var require_request_as_event_emitter = __commonJS({
               emitError(error8);
             }
           });
-          timings = timer(request);
-          progress.upload(request, emitter, uploadBodySize);
+          timings = timer(request2);
+          progress.upload(request2, emitter, uploadBodySize);
           if (options2.gotTimeout) {
-            timedOut(request, options2.gotTimeout, options2);
+            timedOut(request2, options2.gotTimeout, options2);
           }
-          emitter.emit("request", request);
+          emitter.emit("request", request2);
           const uploadComplete = () => {
-            request.emit("upload-complete");
+            request2.emit("upload-complete");
           };
           try {
             if (is.nodeStream(options2.body)) {
               options2.body.once("end", uploadComplete);
-              options2.body.pipe(request);
+              options2.body.pipe(request2);
               options2.body = void 0;
             } else if (options2.body) {
-              request.end(options2.body, uploadComplete);
+              request2.end(options2.body, uploadComplete);
             } else if (input && (options2.method === "POST" || options2.method === "PUT" || options2.method === "PATCH")) {
               input.once("end", uploadComplete);
-              input.pipe(request);
+              input.pipe(request2);
             } else {
-              request.end(uploadComplete);
+              request2.end(uploadComplete);
             }
           } catch (error8) {
             emitError(new RequestError(error8, options2));
@@ -32451,6 +32451,25 @@ var require_lib2 = __commonJS({
 });
 
 // packages/core/utils/stream-down.ts
+function isRetryableError(error8) {
+  if (error8.code && RETRYABLE_ERROR_CODES.has(error8.code)) {
+    return true;
+  }
+  const message = error8.message.toLowerCase();
+  if (message.includes("econnreset") || message.includes("socket hang up") || message.includes("connection reset") || message.includes("network") || message.includes("timeout") || message.includes("aborted")) {
+    return true;
+  }
+  return false;
+}
+function calculateBackoff(attempt, initialBackoff, maxBackoff, multiplier) {
+  const exponentialDelay = initialBackoff * multiplier ** attempt;
+  const cappedDelay = Math.min(exponentialDelay, maxBackoff);
+  const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
+  return Math.round(cappedDelay + jitter);
+}
+function sleep(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
+}
 function getExistingFileSize(filePath) {
   try {
     const stats = fs.statSync(filePath);
@@ -32459,17 +32478,11 @@ function getExistingFileSize(filePath) {
     return 0;
   }
 }
-function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
-  const opts = typeof optionsOrUrl === "string" ? {
-    url: optionsOrUrl,
-    destinationPath,
-    expectedSize,
-    onProgress
-  } : optionsOrUrl;
+function attemptDownload(opts, existingSize, retryAttempt) {
   const uri = new import_node_url.URL(opts.url);
   const resolvedDestination = opts.destinationPath ?? path.basename(uri.pathname ?? opts.url);
-  const enableResume = opts.enableResume !== false;
-  const existingSize = enableResume ? getExistingFileSize(resolvedDestination) : 0;
+  const socketTimeout = opts.timeout?.socketTimeout ?? 3e4;
+  const connectTimeout = opts.timeout?.connectTimeout ?? 3e4;
   const isResuming = existingSize > 0;
   if (isResuming && opts.onIncompleteDetected && opts.expectedSize) {
     opts.onIncompleteDetected(existingSize, opts.expectedSize);
@@ -32479,106 +32492,264 @@ function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
   });
   const progressInterval = opts.progressInterval ?? 100;
   return new Promise((resolve2, reject) => {
-    const requestOptions = {};
+    let aborted = false;
+    let connectTimeoutId;
+    let socketTimeoutId;
+    const cleanup = () => {
+      if (connectTimeoutId) {
+        clearTimeout(connectTimeoutId);
+        connectTimeoutId = void 0;
+      }
+      if (socketTimeoutId) {
+        clearTimeout(socketTimeoutId);
+        socketTimeoutId = void 0;
+      }
+    };
+    const abortWithError = (error8) => {
+      if (aborted) return;
+      aborted = true;
+      cleanup();
+      file.close();
+      reject(error8);
+    };
+    const requestOptions = {
+      timeout: connectTimeout
+    };
     if (isResuming) {
       requestOptions.headers = {
         Range: `bytes=${existingSize}-`
       };
     }
-    (0, import_node_https.get)(uri.href, requestOptions, (response) => {
-      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        file.close();
-        if (!isResuming) {
+    connectTimeoutId = setTimeout(() => {
+      const error8 = new Error(
+        `Connection timeout after ${connectTimeout}ms`
+      );
+      error8.code = "CONNECT_TIMEOUT";
+      abortWithError(error8);
+    }, connectTimeout);
+    const req = (0, import_node_https.get)(
+      uri.href,
+      requestOptions,
+      (response) => {
+        if (connectTimeoutId) {
+          clearTimeout(connectTimeoutId);
+          connectTimeoutId = void 0;
+        }
+        if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          cleanup();
+          file.close();
+          if (!isResuming) {
+            try {
+              fs.unlinkSync(resolvedDestination);
+            } catch {
+            }
+          }
+          attemptDownload(
+            {
+              ...opts,
+              url: response.headers.location
+            },
+            existingSize,
+            retryAttempt
+          ).then(resolve2).catch(reject);
+          return;
+        }
+        if (response.statusCode && RETRYABLE_HTTP_STATUS_CODES.has(response.statusCode)) {
+          const error8 = new Error(
+            `HTTP ${response.statusCode}: ${response.statusMessage}`
+          );
+          error8.code = `HTTP_${response.statusCode}`;
+          error8.statusCode = response.statusCode;
+          cleanup();
+          file.close();
+          reject(error8);
+          return;
+        }
+        if (response.statusCode && response.statusCode >= 400) {
+          const error8 = new Error(
+            `HTTP ${response.statusCode}: ${response.statusMessage}`
+          );
+          error8.code = `HTTP_${response.statusCode}`;
+          cleanup();
+          file.close();
+          reject(error8);
+          return;
+        }
+        const serverSupportsResume = response.statusCode === 206;
+        if (isResuming && !serverSupportsResume && response.statusCode === 200) {
+          cleanup();
+          file.close();
           try {
             fs.unlinkSync(resolvedDestination);
           } catch {
           }
+          attemptDownload(
+            {
+              ...opts,
+              enableResume: false
+            },
+            0,
+            retryAttempt
+          ).then(resolve2).catch(reject);
+          return;
         }
-        streamDown({
-          ...opts,
-          url: response.headers.location
-        }).then(resolve2).catch(reject);
-        return;
-      }
-      const serverSupportsResume = response.statusCode === 206;
-      if (isResuming && !serverSupportsResume && response.statusCode === 200) {
-        file.close();
-        try {
-          fs.unlinkSync(resolvedDestination);
-        } catch {
+        const contentLengthHeader = response.headers["content-length"];
+        let totalBytes;
+        if (serverSupportsResume && contentLengthHeader !== void 0) {
+          totalBytes = existingSize + Number.parseInt(contentLengthHeader, 10);
+        } else if (contentLengthHeader !== void 0) {
+          totalBytes = Number.parseInt(contentLengthHeader, 10);
+        } else {
+          totalBytes = opts.expectedSize ?? 0;
         }
-        streamDown({
-          ...opts,
-          enableResume: false
-        }).then(resolve2).catch(reject);
-        return;
-      }
-      const contentLengthHeader = response.headers["content-length"];
-      let totalBytes;
-      if (serverSupportsResume && contentLengthHeader !== void 0) {
-        totalBytes = existingSize + Number.parseInt(contentLengthHeader, 10);
-      } else if (contentLengthHeader !== void 0) {
-        totalBytes = Number.parseInt(contentLengthHeader, 10);
-      } else {
-        totalBytes = opts.expectedSize ?? 0;
-      }
-      let bytesDownloaded = serverSupportsResume ? existingSize : 0;
-      const bytesDownloadedStart = bytesDownloaded;
-      let lastProgressTime = Date.now();
-      let lastProgressBytes = bytesDownloaded;
-      let bytesPerSecond = 0;
-      let lastEmitTime = 0;
-      const emitProgress = (force = false) => {
-        if (!opts.onProgress) return;
-        const now = Date.now();
-        if (!force && now - lastEmitTime < progressInterval) return;
-        lastEmitTime = now;
-        const timeDelta = now - lastProgressTime;
-        if (timeDelta > 0) {
-          const bytesDelta = bytesDownloaded - lastProgressBytes;
-          bytesPerSecond = Math.round(
-            bytesDelta / timeDelta * 1e3
-          );
-          lastProgressTime = now;
-          lastProgressBytes = bytesDownloaded;
+        let bytesDownloaded = serverSupportsResume ? existingSize : 0;
+        let lastProgressTime = Date.now();
+        let lastProgressBytes = bytesDownloaded;
+        let bytesPerSecond = 0;
+        let lastEmitTime = 0;
+        const resetSocketTimeout = () => {
+          if (socketTimeoutId) {
+            clearTimeout(socketTimeoutId);
+          }
+          socketTimeoutId = setTimeout(() => {
+            const error8 = new Error(
+              `Socket timeout: no data received for ${socketTimeout}ms`
+            );
+            error8.code = "SOCKET_TIMEOUT";
+            abortWithError(error8);
+            req.destroy();
+          }, socketTimeout);
+        };
+        const emitProgress = (force = false) => {
+          if (!opts.onProgress) return;
+          const now = Date.now();
+          if (!force && now - lastEmitTime < progressInterval) return;
+          lastEmitTime = now;
+          const timeDelta = now - lastProgressTime;
+          if (timeDelta > 0) {
+            const bytesDelta = bytesDownloaded - lastProgressBytes;
+            bytesPerSecond = Math.round(
+              bytesDelta / timeDelta * 1e3
+            );
+            lastProgressTime = now;
+            lastProgressBytes = bytesDownloaded;
+          }
+          const remainingBytes = totalBytes - bytesDownloaded;
+          const etaSeconds = bytesPerSecond > 0 ? Math.round(remainingBytes / bytesPerSecond) : 0;
+          const percentComplete = totalBytes > 0 ? Math.min(
+            100,
+            bytesDownloaded / totalBytes * 100
+          ) : 0;
+          opts.onProgress({
+            bytesDownloaded,
+            totalBytes,
+            bytesPerSecond,
+            etaSeconds,
+            percentComplete,
+            isResuming: serverSupportsResume && isResuming,
+            resumedFromBytes: serverSupportsResume ? existingSize : void 0,
+            retryAttempt
+          });
+        };
+        resetSocketTimeout();
+        if (serverSupportsResume && isResuming) {
+          emitProgress(true);
         }
-        const remainingBytes = totalBytes - bytesDownloaded;
-        const etaSeconds = bytesPerSecond > 0 ? Math.round(remainingBytes / bytesPerSecond) : 0;
-        const percentComplete = totalBytes > 0 ? Math.min(100, bytesDownloaded / totalBytes * 100) : 0;
-        opts.onProgress({
-          bytesDownloaded,
-          totalBytes,
-          bytesPerSecond,
-          etaSeconds,
-          percentComplete,
-          isResuming: serverSupportsResume && isResuming,
-          resumedFromBytes: serverSupportsResume ? existingSize : void 0
+        response.on("data", (chunk) => {
+          resetSocketTimeout();
+          file.write(chunk);
+          bytesDownloaded += chunk.length;
+          emitProgress();
         });
-      };
-      if (serverSupportsResume && isResuming) {
-        emitProgress(true);
+        response.on("end", () => {
+          cleanup();
+          file.end();
+          emitProgress(true);
+          resolve2(response);
+        });
+        response.on("error", (error8) => {
+          abortWithError(error8);
+        });
+        response.on("close", () => {
+          if (!aborted && bytesDownloaded < totalBytes && totalBytes > 0) {
+            const error8 = new Error(
+              `Connection closed prematurely: downloaded ${bytesDownloaded} of ${totalBytes} bytes`
+            );
+            error8.code = "ECONNRESET";
+            abortWithError(error8);
+          }
+        });
       }
-      response.on("data", (chunk) => {
-        file.write(chunk);
-        bytesDownloaded += chunk.length;
-        emitProgress();
-      });
-      response.on("end", () => {
-        file.end();
-        emitProgress(true);
-        resolve2(response);
-      });
-      response.on("error", (error8) => {
-        file.close();
-        reject(error8);
-      });
-    }).on("error", (error8) => {
-      file.close();
-      reject(error8);
+    );
+    req.on("error", (error8) => {
+      abortWithError(error8);
+    });
+    req.on("timeout", () => {
+      const error8 = new Error(
+        `Request timeout after ${connectTimeout}ms`
+      );
+      error8.code = "ETIMEDOUT";
+      req.destroy();
+      abortWithError(error8);
     });
   });
 }
-var fs, import_node_https, path, import_node_url;
+async function streamDown(optionsOrUrl, destinationPath, expectedSize, onProgress) {
+  const opts = typeof optionsOrUrl === "string" ? {
+    url: optionsOrUrl,
+    destinationPath,
+    expectedSize,
+    onProgress
+  } : optionsOrUrl;
+  const uri = new import_node_url.URL(opts.url);
+  const resolvedDestination = opts.destinationPath ?? path.basename(uri.pathname ?? opts.url);
+  const maxRetries = opts.retry?.maxRetries ?? 5;
+  const initialBackoff = opts.retry?.initialBackoff ?? 5e3;
+  const maxBackoff = opts.retry?.maxBackoff ?? 6e4;
+  const backoffMultiplier = opts.retry?.backoffMultiplier ?? 2;
+  const enableResume = opts.enableResume !== false;
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const existingSize = enableResume ? getExistingFileSize(resolvedDestination) : 0;
+    try {
+      const response = await attemptDownload(opts, existingSize, attempt);
+      return response;
+    } catch (error8) {
+      lastError = error8;
+      const retryable = isRetryableError(
+        error8
+      );
+      if (!retryable || attempt >= maxRetries) {
+        const downloadedBytes = getExistingFileSize(resolvedDestination);
+        throw new DownloadError(
+          `Download failed after ${attempt + 1} attempt(s): ${error8.message}`,
+          error8.code,
+          attempt + 1,
+          retryable,
+          downloadedBytes
+        );
+      }
+      const delayMs = calculateBackoff(
+        attempt,
+        initialBackoff,
+        maxBackoff,
+        backoffMultiplier
+      );
+      if (opts.retry?.onRetry) {
+        opts.retry.onRetry(attempt + 1, error8, delayMs);
+      }
+      await sleep(delayMs);
+    }
+  }
+  throw new DownloadError(
+    `Download failed after ${maxRetries + 1} attempts`,
+    lastError?.message,
+    maxRetries + 1,
+    false,
+    getExistingFileSize(resolvedDestination)
+  );
+}
+var fs, import_node_https, path, import_node_url, DownloadError, RETRYABLE_ERROR_CODES, RETRYABLE_HTTP_STATUS_CODES;
 var init_stream_down = __esm({
   "packages/core/utils/stream-down.ts"() {
     "use strict";
@@ -32586,6 +32757,60 @@ var init_stream_down = __esm({
     import_node_https = require("node:https");
     path = __toESM(require("node:path"));
     import_node_url = require("node:url");
+    DownloadError = class extends Error {
+      /** The underlying error code (e.g., ECONNRESET, ETIMEDOUT) */
+      code;
+      /** Number of retry attempts made before giving up */
+      attempts;
+      /** Whether this error is retryable */
+      isRetryable;
+      /** Bytes downloaded before the failure */
+      bytesDownloaded;
+      /**
+       * Creates a new DownloadError.
+       *
+       * @param message - Human-readable error description.
+       * @param code - Error code from the underlying error.
+       * @param attempts - Number of retry attempts made.
+       * @param isRetryable - Whether the error could be retried.
+       * @param bytesDownloaded - Bytes downloaded before failure.
+       */
+      constructor(message, code, attempts = 0, isRetryable = false, bytesDownloaded = 0) {
+        super(message);
+        this.name = "DownloadError";
+        this.code = code;
+        this.attempts = attempts;
+        this.isRetryable = isRetryable;
+        this.bytesDownloaded = bytesDownloaded;
+      }
+    };
+    RETRYABLE_ERROR_CODES = /* @__PURE__ */ new Set([
+      "ECONNRESET",
+      "ECONNREFUSED",
+      "ETIMEDOUT",
+      "ENOTFOUND",
+      "ENETUNREACH",
+      "EHOSTUNREACH",
+      "EPIPE",
+      "EAI_AGAIN",
+      "EPROTO",
+      "SOCKET_TIMEOUT",
+      "CONNECT_TIMEOUT"
+    ]);
+    RETRYABLE_HTTP_STATUS_CODES = /* @__PURE__ */ new Set([
+      408,
+      // Request Timeout
+      429,
+      // Too Many Requests
+      500,
+      // Internal Server Error
+      502,
+      // Bad Gateway
+      503,
+      // Service Unavailable
+      504
+      // Gateway Timeout
+    ]);
   }
 });
 
@@ -35842,7 +36067,7 @@ var init_getCoveredStates = __esm({
 });
 
 // apps/server/service/config.ts
-var PAGE_SIZE, MAX_PAGE_SIZE, MAX_PAGE_NUMBER, ES_INDEX_NAME, ES_LOCALITY_INDEX_NAME, ES_CLEAR_INDEX, INDEX_BACKOFF_INITIAL, INDEX_BACKOFF_INCREMENT, INDEX_BACKOFF_MAX, INDEX_MAX_RETRIES, INDEX_TIMEOUT, LOADING_CHUNK_SIZE, ENABLE_GEO, GNAF_PACKAGE_URL, GNAF_DIR, ONE_DAY_S, ONE_DAY_MS, THIRTY_DAYS_MS, SERVER_PORT, CORS_ALLOW_ORIGIN, CORS_EXPOSE_HEADERS, CORS_ALLOW_HEADERS, CACHE_MAX_ENTRIES, CACHE_TTL_MS, CACHE_ENABLED, CIRCUIT_FAILURE_THRESHOLD, CIRCUIT_RESET_TIMEOUT_MS, CIRCUIT_SUCCESS_THRESHOLD, DYNAMIC_RESOURCES_ENABLED, TARGET_MEMORY_UTILIZATION, VERBOSE;
+var PAGE_SIZE, MAX_PAGE_SIZE, MAX_PAGE_NUMBER, ES_INDEX_NAME, ES_LOCALITY_INDEX_NAME, ES_CLEAR_INDEX, INDEX_BACKOFF_INITIAL, INDEX_BACKOFF_INCREMENT, INDEX_BACKOFF_MAX, INDEX_MAX_RETRIES, INDEX_TIMEOUT, LOADING_CHUNK_SIZE, ENABLE_GEO, GNAF_MIRROR_URL, GNAF_PACKAGE_URL, GNAF_USE_MIRROR, GNAF_DIR, ONE_DAY_S, ONE_DAY_MS, THIRTY_DAYS_MS, SERVER_PORT, CORS_ALLOW_ORIGIN, CORS_EXPOSE_HEADERS, CORS_ALLOW_HEADERS, CACHE_MAX_ENTRIES, CACHE_TTL_MS, CACHE_ENABLED, CIRCUIT_FAILURE_THRESHOLD, CIRCUIT_RESET_TIMEOUT_MS, CIRCUIT_SUCCESS_THRESHOLD, DOWNLOAD_MAX_RETRIES, DOWNLOAD_BACKOFF_INITIAL, DOWNLOAD_BACKOFF_MAX, DOWNLOAD_SOCKET_TIMEOUT, DOWNLOAD_CONNECT_TIMEOUT, DYNAMIC_RESOURCES_ENABLED, TARGET_MEMORY_UTILIZATION, VERBOSE;
 var init_config = __esm({
   "apps/server/service/config.ts"() {
     "use strict";
@@ -35874,12 +36099,14 @@ var init_config = __esm({
       10
     );
     ENABLE_GEO = !!process.env.ADDRESSKIT_ENABLE_GEO;
+    GNAF_MIRROR_URL = process.env.GNAF_MIRROR_URL ?? "https://dl.addresskit.com.au/package_show.conf.json";
     GNAF_PACKAGE_URL = process.env.GNAF_PACKAGE_URL ?? "https://data.gov.au/api/3/action/package_show?id=19432f89-dc3a-4ef3-b943-5326ef1dbecc";
+    GNAF_USE_MIRROR = process.env.GNAF_USE_MIRROR !== "false";
     GNAF_DIR = process.env.GNAF_DIR ?? "target/gnaf";
     ONE_DAY_S = 86400;
     ONE_DAY_MS = 1e3 * ONE_DAY_S;
     THIRTY_DAYS_MS = ONE_DAY_MS * 30;
-    SERVER_PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
+    SERVER_PORT = Number.parseInt(process.env.PORT ?? "7234", 10);
     CORS_ALLOW_ORIGIN = process.env.ADDRESSKIT_ACCESS_CONTROL_ALLOW_ORIGIN;
     CORS_EXPOSE_HEADERS = process.env.ADDRESSKIT_ACCESS_CONTROL_EXPOSE_HEADERS;
     CORS_ALLOW_HEADERS = process.env.ADDRESSKIT_ACCESS_CONTROL_ALLOW_HEADERS;
@@ -35902,6 +36129,26 @@ var init_config = __esm({
     );
     CIRCUIT_SUCCESS_THRESHOLD = Number.parseInt(
       process.env.ADDRESSKIT_CIRCUIT_SUCCESS_THRESHOLD ?? "3",
+      10
+    );
+    DOWNLOAD_MAX_RETRIES = Number.parseInt(
+      process.env.ADDRESSKIT_DOWNLOAD_MAX_RETRIES ?? "5",
+      10
+    );
+    DOWNLOAD_BACKOFF_INITIAL = Number.parseInt(
+      process.env.ADDRESSKIT_DOWNLOAD_BACKOFF_INITIAL ?? "5000",
+      10
+    );
+    DOWNLOAD_BACKOFF_MAX = Number.parseInt(
+      process.env.ADDRESSKIT_DOWNLOAD_BACKOFF_MAX ?? "60000",
+      10
+    );
+    DOWNLOAD_SOCKET_TIMEOUT = Number.parseInt(
+      process.env.ADDRESSKIT_DOWNLOAD_SOCKET_TIMEOUT ?? "30000",
+      10
+    );
+    DOWNLOAD_CONNECT_TIMEOUT = Number.parseInt(
+      process.env.ADDRESSKIT_DOWNLOAD_CONNECT_TIMEOUT ?? "30000",
       10
     );
     DYNAMIC_RESOURCES_ENABLED = process.env.ADDRESSKIT_DYNAMIC_RESOURCES !== "false";
@@ -37760,7 +38007,7 @@ var init_helpers = __esm({
 });
 
 // apps/server/service/commands/load.ts
-var crypto, fs3, path3, stream, import_elasticsearch2, import_directory_exists, Papa2, unzip, fetchGNAFPackageData, fetchGNAFArchive, unzipGNAFArchive, computeDocumentHash, loadGNAFAddress, processAddressChunk, IndexingError, extractBulkErrors, isRetryableError, sendIndexRequest, getStateName, indexLocalitiesForState, initGNAFDataLoader, loadStateData, loadStreetLocality, loadLocality, loadSiteGeo, loadDefaultGeo, loadAuthFiles, loadCommandEntry;
+var crypto, fs3, path3, stream, import_elasticsearch2, import_directory_exists, Papa2, unzip, lastPackageSource, fetchGNAFPackageData, fetchGNAFArchive, unzipGNAFArchive, computeDocumentHash, loadGNAFAddress, processAddressChunk, IndexingError, extractBulkErrors, isRetryableError2, sendIndexRequest, getStateName, indexLocalitiesForState, initGNAFDataLoader, loadStateData, loadStreetLocality, loadLocality, loadSiteGeo, loadDefaultGeo, loadAuthFiles, loadCommandEntry;
 var init_load = __esm({
   "apps/server/service/commands/load.ts"() {
     "use strict";
@@ -37778,9 +38025,11 @@ var init_load = __esm({
     init_helpers();
     init_fs();
     init_service();
+    lastPackageSource = "cache";
     fetchGNAFPackageData = async () => {
-      const packageUrl = GNAF_PACKAGE_URL;
-      const cachedResponse = await cache.get(packageUrl);
+      const mirrorUrl = GNAF_MIRROR_URL;
+      const upstreamUrl = GNAF_PACKAGE_URL;
+      const cachedResponse = await cache.get(upstreamUrl);
       if (VERBOSE) logger("cached gnaf package data", cachedResponse);
       let age = 0;
       if (cachedResponse !== void 0) {
@@ -37789,33 +38038,91 @@ var init_load = __esm({
         if (VERBOSE) logger("created", created);
         age = Date.now() - created.getTime();
         if (age <= ONE_DAY_MS) {
+          lastPackageSource = "cache";
           return cachedResponse;
         }
       }
-      try {
-        const response = await gotClient.get(packageUrl);
-        if (VERBOSE) logger("response.isFromCache", response.fromCache);
-        if (VERBOSE)
-          logger("fresh gnaf package data", {
-            body: response.body,
-            headers: response.headers
+      const sources = GNAF_USE_MIRROR ? [
+        { url: mirrorUrl, name: "mirror", isMirror: true },
+        { url: upstreamUrl, name: "upstream", isMirror: false }
+      ] : [{ url: upstreamUrl, name: "upstream", isMirror: false }];
+      let lastError;
+      for (const source of sources) {
+        try {
+          if (VERBOSE) logger(`Trying ${source.name}: ${source.url}`);
+          const response = await gotClient.get(source.url, {
+            timeout: { request: 3e4 }
+            // 30 second timeout
           });
-        await cache.set(packageUrl, {
-          body: response.body,
-          headers: response.headers,
-          cachedAt: Date.now()
-        });
-        response.headers["x-cache"] = response.fromCache ? "HIT" : "MISS";
-        return response;
-      } catch (error_) {
-        if (cachedResponse !== void 0) {
-          if (age < THIRTY_DAYS_MS) {
-            cachedResponse.headers.warning = '110	custom/1.0 "Response is Stale"';
-            return cachedResponse;
+          if (VERBOSE) logger("response.isFromCache", response.fromCache);
+          let packageData;
+          try {
+            packageData = JSON.parse(response.body);
+          } catch {
+            throw new Error(`Invalid JSON response from ${source.name}`);
+          }
+          let finalBody;
+          if (source.isMirror && packageData.original_package) {
+            finalBody = JSON.stringify(packageData.original_package);
+            logInfo(
+              `Using AddressKit CDN mirror (synced: ${packageData.synced_at ?? "unknown"})`
+            );
+          } else {
+            finalBody = response.body;
+            if (source.name === "upstream" && sources.length > 1) {
+              logWarning(
+                "Mirror unavailable, using data.gov.au directly"
+              );
+            }
+          }
+          const parsed = JSON.parse(finalBody);
+          if (!parsed.success || !parsed.result?.resources) {
+            throw new Error(
+              `Invalid package data structure from ${source.name}`
+            );
+          }
+          if (VERBOSE)
+            logger("fresh gnaf package data", {
+              body: `${finalBody.slice(0, 500)}...`,
+              source: source.name
+            });
+          await cache.set(upstreamUrl, {
+            body: finalBody,
+            headers: response.headers,
+            cachedAt: Date.now()
+          });
+          response.headers["x-cache"] = response.fromCache ? "HIT" : "MISS";
+          response.headers["x-source"] = source.name;
+          lastPackageSource = source.name;
+          const syntheticResponse = {
+            ...response,
+            body: finalBody
+          };
+          return syntheticResponse;
+        } catch (error_) {
+          lastError = error_;
+          if (VERBOSE)
+            logger(
+              `Failed to fetch from ${source.name}: ${lastError.message}`
+            );
+          if (source !== sources[sources.length - 1]) {
+            logWarning(
+              `${source.name === "mirror" ? "Mirror" : "Upstream"} fetch failed, trying ${source.name === "mirror" ? "upstream" : "next source"}...`
+            );
           }
         }
-        throw error_;
       }
+      if (cachedResponse !== void 0) {
+        if (age < THIRTY_DAYS_MS) {
+          logWarning(
+            "All sources failed, using stale cached data (may be outdated)"
+          );
+          cachedResponse.headers.warning = '110	custom/1.0 "Response is Stale"';
+          lastPackageSource = "cache";
+          return cachedResponse;
+        }
+      }
+      throw lastError ?? new Error("Failed to fetch GNAF package data from any source");
     };
     fetchGNAFArchive = async () => {
       const response = await fetchGNAFPackageData();
@@ -37882,6 +38189,27 @@ var init_load = __esm({
             destinationPath: incompleteFile,
             expectedSize: dataResource.size,
             enableResume: true,
+            // Retry configuration for handling transient network errors (ECONNRESET, etc.)
+            retry: {
+              maxRetries: DOWNLOAD_MAX_RETRIES,
+              initialBackoff: DOWNLOAD_BACKOFF_INITIAL,
+              maxBackoff: DOWNLOAD_BACKOFF_MAX,
+              backoffMultiplier: 2,
+              onRetry: (attempt, err, nextDelayMs) => {
+                const errCode = err.code ?? "UNKNOWN";
+                logWarning(
+                  `Download interrupted (${errCode}). Retry ${attempt}/${DOWNLOAD_MAX_RETRIES} in ${formatDuration(nextDelayMs)}...`
+                );
+                updateSpinner(
+                  `Retrying download (attempt ${attempt + 1}/${DOWNLOAD_MAX_RETRIES + 1})...`
+                );
+              }
+            },
+            // Timeout configuration to prevent indefinite hangs
+            timeout: {
+              socketTimeout: DOWNLOAD_SOCKET_TIMEOUT,
+              connectTimeout: DOWNLOAD_CONNECT_TIMEOUT
+            },
             onIncompleteDetected: (existing, expected) => {
               isResuming = true;
               if (VERBOSE)
@@ -37900,8 +38228,9 @@ var init_load = __esm({
               const total = formatBytes(progress.totalBytes);
               const eta = progress.etaSeconds > 0 ? formatDuration(progress.etaSeconds * 1e3) : "calculating...";
               const resumeIndicator = progress.isResuming ? theme.secondary(" (resumed)") : "";
+              const retryIndicator = progress.retryAttempt && progress.retryAttempt > 0 ? theme.warning(` [retry ${progress.retryAttempt}]`) : "";
               updateSpinner(
-                `Downloading G-NAF${resumeIndicator}  ${progressBar}  ${theme.muted(`${downloaded} / ${total}`)}  ${theme.secondary(`${speed}/s`)}  ${theme.dim(`ETA: ${eta}`)}`
+                `Downloading G-NAF${resumeIndicator}${retryIndicator}  ${progressBar}  ${theme.muted(`${downloaded} / ${total}`)}  ${theme.secondary(`${speed}/s`)}  ${theme.dim(`ETA: ${eta}`)}`
               );
             }
           });
@@ -38221,7 +38550,7 @@ var init_load = __esm({
       }
       return { failedCount, errors };
     };
-    isRetryableError = (err) => {
+    isRetryableError2 = (err) => {
       if (err instanceof Error) {
         const message = err.message.toLowerCase();
         if (message.includes("timeout") || message.includes("econnreset") || message.includes("econnrefused") || message.includes("socket hang up") || message.includes("circuit")) {
@@ -38276,7 +38605,7 @@ var init_load = __esm({
           return;
         } catch (error_) {
           lastError = error_;
-          if (!isRetryableError(error_)) {
+          if (!isRetryableError2(error_)) {
             error("Non-retryable error encountered, failing immediately");
             break;
           }
@@ -61869,11 +62198,11 @@ var require_negotiator = __commonJS({
     var preferredMediaTypes = require_mediaType();
     module2.exports = Negotiator;
     module2.exports.Negotiator = Negotiator;
-    function Negotiator(request) {
+    function Negotiator(request2) {
       if (!(this instanceof Negotiator)) {
-        return new Negotiator(request);
+        return new Negotiator(request2);
       }
-      this.request = request;
+      this.request = request2;
     }
     Negotiator.prototype.charset = function charset(available) {
       var set = this.charsets(available);
@@ -63612,22 +63941,22 @@ var require_waycharter = __commonJS({
       }) {
         const lowerCaseLoaderVaries = new Set(loaderVaries ? loaderVaries.map((header) => header.toLowerCase()) : []);
         const uriTemplate = (0, _routerToRfc.routerToRfc6570)(path5);
-        this.router.get(path5, async function(request, response, next) {
-          const filteredHeaders = Object.keys(request.headers).reduce((filtered, key) => lowerCaseLoaderVaries.has(key) ? {
+        this.router.get(path5, async function(request2, response, next) {
+          const filteredHeaders = Object.keys(request2.headers).reduce((filtered, key) => lowerCaseLoaderVaries.has(key) ? {
             ...filtered,
-            [key]: request.headers[key]
+            [key]: request2.headers[key]
           } : filtered, {});
           try {
             const resource = await loader({
-              ...request.params,
-              ...request.query
-            }, filteredHeaders, request.url, request, response);
+              ...request2.params,
+              ...request2.query
+            }, filteredHeaders, request2.url, request2, response);
             if (loaderVaries) {
               response.header("vary", [...lowerCaseLoaderVaries]);
             }
-            sendResponse(resource, response, request.url, [{
+            sendResponse(resource, response, request2.url, [{
               rel: "self",
-              uri: request.url
+              uri: request2.url
             }]);
           } catch (error8) {
             console.error(error8);
@@ -63650,30 +63979,30 @@ var require_waycharter = __commonJS({
         const upperCaseMethod = method.toUpperCase();
         const lowerCaseMethod = method.toLowerCase();
         const lowerCaseHeaderParameters = headerParameters && new Set(headerParameters.map((header) => header.toLowerCase()));
-        this.router[lowerCaseMethod](path5, async (request, response, next) => {
+        this.router[lowerCaseMethod](path5, async (request2, response, next) => {
           try {
-            let filteredHeaders = request.headers;
+            let filteredHeaders = request2.headers;
             if ((0, _methodIsCacheable.methodIsCacheable)(upperCaseMethod) && headerParameters) {
               response.header("vary", [...lowerCaseHeaderParameters]);
               filteredHeaders = {};
-              for (const headerName in request.headers) {
+              for (const headerName in request2.headers) {
                 if (lowerCaseHeaderParameters.has(headerName)) {
-                  filteredHeaders[headerName] = request.headers[headerName];
+                  filteredHeaders[headerName] = request2.headers[headerName];
                 }
               }
             }
             const resource = await operation({
               parameters: {
-                ...request.params,
-                ...request.query,
-                ...(0, _methodCanHaveBody.methodCanHaveBody)(upperCaseMethod) && request.body
+                ...request2.params,
+                ...request2.query,
+                ...(0, _methodCanHaveBody.methodCanHaveBody)(upperCaseMethod) && request2.body
               },
               requestHeaders: filteredHeaders,
-              requestUrl: request.url,
-              request,
+              requestUrl: request2.url,
+              request: request2,
               response
             });
-            sendResponse(resource, response, request.url);
+            sendResponse(resource, response, request2.url);
           } catch (error8) {
             console.error(error8);
             response.status(500);
@@ -63736,8 +64065,8 @@ var require_waycharter = __commonJS({
           loader: async ({
             page,
             ...otherParameters
-          }, filteredHeaders, selfUri, request, response) => {
-            const expandedCollectionPath = _uriTemplateLite.URI.expand(uriTemplate, request.params);
+          }, filteredHeaders, selfUri, request2, response) => {
+            const expandedCollectionPath = _uriTemplateLite.URI.expand(uriTemplate, request2.params);
             if (page === "0") {
               return {
                 status: 308,
@@ -63768,8 +64097,8 @@ var require_waycharter = __commonJS({
             const filteredParameters = {};
             for (const filter of filters) {
               for (const parameter of filter.parameters) {
-                if (request.query[parameter] !== void 0) {
-                  filteredParameters[parameter] = request.query[parameter];
+                if (request2.query[parameter] !== void 0) {
+                  filteredParameters[parameter] = request2.query[parameter];
                 }
               }
             }
@@ -63783,8 +64112,8 @@ var require_waycharter = __commonJS({
             } = await collectionLoader({
               page: pageInt,
               ...filteredParameters,
-              ...request.params
-            }, filteredHeaders, selfUri, request, response);
+              ...request2.params
+            }, filteredHeaders, selfUri, request2, response);
             const array = arrayPointer ? _jsonpointer.default.get(body, arrayPointer) : body;
             const {
               itemLinks,
@@ -67334,7 +67663,7 @@ var init_waycharterServer = __esm({
     app = (0, import_express.default)();
     ONE_DAY = 60 * 60 * 24;
     ONE_WEEK = ONE_DAY * 7;
-    serverPort = Number(process.env.PORT ?? 8080);
+    serverPort = Number(process.env.PORT ?? 7234);
     logger6 = (0, import_debug6.default)("api");
     error6 = (0, import_debug6.default)("error");
     error6.log = console.error.bind(console);
@@ -67349,7 +67678,7 @@ __export(start_exports, {
 });
 async function runStartCommand(options) {
   const isDaemon = getDaemonMode();
-  const port = options.port || process.env.PORT || "8080";
+  const port = options.port || process.env.PORT || "7234";
   if (!isDaemon && process.env.DEBUG === void 0) {
     import_debug7.default.enable("api,error");
   }
@@ -67502,7 +67831,7 @@ program2.command("load").description("Load G-NAF address data into the search in
 program2.command("start").description("Start the REST API server").option("-d, --daemon", "Run in background (daemon) mode", false).option(
   "-p, --port <port>",
   "Port to listen on",
-  process.env.PORT || "8080"
+  process.env.PORT || "7234"
 ).action(async (options) => {
   setDaemonMode(options.daemon);
   if (options.port) {

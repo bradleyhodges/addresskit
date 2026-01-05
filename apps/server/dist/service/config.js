@@ -9,7 +9,7 @@
  * @module config
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VERBOSE = exports.TARGET_MEMORY_UTILIZATION = exports.DYNAMIC_RESOURCES_ENABLED = exports.CIRCUIT_SUCCESS_THRESHOLD = exports.CIRCUIT_RESET_TIMEOUT_MS = exports.CIRCUIT_FAILURE_THRESHOLD = exports.CACHE_ENABLED = exports.CACHE_TTL_MS = exports.CACHE_MAX_ENTRIES = exports.CORS_ALLOW_HEADERS = exports.CORS_EXPOSE_HEADERS = exports.CORS_ALLOW_ORIGIN = exports.SERVER_PORT = exports.THIRTY_DAYS_MS = exports.ONE_DAY_MS = exports.ONE_DAY_S = exports.GNAF_DIR = exports.GNAF_PACKAGE_URL = exports.ENABLE_GEO = exports.LOADING_CHUNK_SIZE = exports.INDEX_TIMEOUT = exports.INDEX_MAX_RETRIES = exports.INDEX_BACKOFF_MAX = exports.INDEX_BACKOFF_INCREMENT = exports.INDEX_BACKOFF_INITIAL = exports.ES_CLEAR_INDEX = exports.ES_LOCALITY_INDEX_NAME = exports.ES_INDEX_NAME = exports.MAX_PAGE_NUMBER = exports.MAX_PAGE_SIZE = exports.PAGE_SIZE = void 0;
+exports.VERBOSE = exports.TARGET_MEMORY_UTILIZATION = exports.DYNAMIC_RESOURCES_ENABLED = exports.DOWNLOAD_CONNECT_TIMEOUT = exports.DOWNLOAD_SOCKET_TIMEOUT = exports.DOWNLOAD_BACKOFF_MAX = exports.DOWNLOAD_BACKOFF_INITIAL = exports.DOWNLOAD_MAX_RETRIES = exports.CIRCUIT_SUCCESS_THRESHOLD = exports.CIRCUIT_RESET_TIMEOUT_MS = exports.CIRCUIT_FAILURE_THRESHOLD = exports.CACHE_ENABLED = exports.CACHE_TTL_MS = exports.CACHE_MAX_ENTRIES = exports.CORS_ALLOW_HEADERS = exports.CORS_EXPOSE_HEADERS = exports.CORS_ALLOW_ORIGIN = exports.SERVER_PORT = exports.THIRTY_DAYS_MS = exports.ONE_DAY_MS = exports.ONE_DAY_S = exports.GNAF_DIR = exports.GNAF_USE_MIRROR = exports.GNAF_PACKAGE_URL = exports.GNAF_MIRROR_URL = exports.ENABLE_GEO = exports.LOADING_CHUNK_SIZE = exports.INDEX_TIMEOUT = exports.INDEX_MAX_RETRIES = exports.INDEX_BACKOFF_MAX = exports.INDEX_BACKOFF_INCREMENT = exports.INDEX_BACKOFF_INITIAL = exports.ES_CLEAR_INDEX = exports.ES_LOCALITY_INDEX_NAME = exports.ES_INDEX_NAME = exports.MAX_PAGE_NUMBER = exports.MAX_PAGE_SIZE = exports.PAGE_SIZE = void 0;
 // ---------------------------------------------------------------------------------
 // Pagination Configuration
 // ---------------------------------------------------------------------------------
@@ -129,14 +129,33 @@ exports.ENABLE_GEO = !!process.env.ADDRESSKIT_ENABLE_GEO;
 // G-NAF Source Configuration
 // ---------------------------------------------------------------------------------
 /**
+ * URL to the AddressKit G-NAF mirror configuration.
+ * This CDN-powered mirror provides faster and more reliable downloads.
+ * Falls back to data.gov.au if the mirror is unavailable.
+ *
+ * @default "https://dl.addresskit.com.au/package_show.conf.json"
+ * @env GNAF_MIRROR_URL
+ */
+exports.GNAF_MIRROR_URL = process.env.GNAF_MIRROR_URL ??
+    "https://dl.addresskit.com.au/package_show.conf.json";
+/**
  * URL to the G-NAF package metadata on data.gov.au.
- * Used to discover the latest G-NAF download URL.
+ * Used as fallback when the mirror is unavailable.
  *
  * @default "https://data.gov.au/api/3/action/package_show?id=19432f89-dc3a-4ef3-b943-5326ef1dbecc"
  * @env GNAF_PACKAGE_URL
  */
 exports.GNAF_PACKAGE_URL = process.env.GNAF_PACKAGE_URL ??
     "https://data.gov.au/api/3/action/package_show?id=19432f89-dc3a-4ef3-b943-5326ef1dbecc";
+/**
+ * Whether to use the AddressKit mirror as the primary download source.
+ * When enabled, downloads are faster and more reliable via CDN.
+ * Falls back to data.gov.au automatically if mirror is unavailable.
+ *
+ * @default true
+ * @env GNAF_USE_MIRROR
+ */
+exports.GNAF_USE_MIRROR = process.env.GNAF_USE_MIRROR !== "false";
 /**
  * Local directory for storing downloaded G-NAF data files.
  *
@@ -166,10 +185,10 @@ exports.THIRTY_DAYS_MS = exports.ONE_DAY_MS * 30;
 /**
  * HTTP port for the API server.
  *
- * @default 8080
+ * @default 7234
  * @env PORT
  */
-exports.SERVER_PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
+exports.SERVER_PORT = Number.parseInt(process.env.PORT ?? "7234", 10);
 /**
  * CORS Access-Control-Allow-Origin header value.
  * Set to "*" to allow all origins, or a specific domain.
@@ -248,6 +267,48 @@ exports.CIRCUIT_RESET_TIMEOUT_MS = Number.parseInt(process.env.ADDRESSKIT_CIRCUI
  * @env ADDRESSKIT_CIRCUIT_SUCCESS_THRESHOLD
  */
 exports.CIRCUIT_SUCCESS_THRESHOLD = Number.parseInt(process.env.ADDRESSKIT_CIRCUIT_SUCCESS_THRESHOLD ?? "3", 10);
+// ---------------------------------------------------------------------------------
+// Download Configuration
+// ---------------------------------------------------------------------------------
+/**
+ * Maximum number of retry attempts for failed G-NAF downloads.
+ * Network errors (ECONNRESET, timeout) will trigger automatic retries.
+ *
+ * @default 5
+ * @env ADDRESSKIT_DOWNLOAD_MAX_RETRIES
+ */
+exports.DOWNLOAD_MAX_RETRIES = Number.parseInt(process.env.ADDRESSKIT_DOWNLOAD_MAX_RETRIES ?? "5", 10);
+/**
+ * Initial backoff delay in milliseconds before retrying failed downloads.
+ * Used as the base delay for exponential backoff.
+ *
+ * @default 5000 (5 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_BACKOFF_INITIAL
+ */
+exports.DOWNLOAD_BACKOFF_INITIAL = Number.parseInt(process.env.ADDRESSKIT_DOWNLOAD_BACKOFF_INITIAL ?? "5000", 10);
+/**
+ * Maximum backoff delay in milliseconds between download retries.
+ * Prevents backoff from growing indefinitely.
+ *
+ * @default 60000 (1 minute)
+ * @env ADDRESSKIT_DOWNLOAD_BACKOFF_MAX
+ */
+exports.DOWNLOAD_BACKOFF_MAX = Number.parseInt(process.env.ADDRESSKIT_DOWNLOAD_BACKOFF_MAX ?? "60000", 10);
+/**
+ * Socket timeout in milliseconds for download connections.
+ * If no data is received for this duration, the connection is reset.
+ *
+ * @default 30000 (30 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_SOCKET_TIMEOUT
+ */
+exports.DOWNLOAD_SOCKET_TIMEOUT = Number.parseInt(process.env.ADDRESSKIT_DOWNLOAD_SOCKET_TIMEOUT ?? "30000", 10);
+/**
+ * Connection timeout in milliseconds for establishing download connections.
+ *
+ * @default 30000 (30 seconds)
+ * @env ADDRESSKIT_DOWNLOAD_CONNECT_TIMEOUT
+ */
+exports.DOWNLOAD_CONNECT_TIMEOUT = Number.parseInt(process.env.ADDRESSKIT_DOWNLOAD_CONNECT_TIMEOUT ?? "30000", 10);
 // ---------------------------------------------------------------------------------
 // Resource Management Configuration
 // ---------------------------------------------------------------------------------
