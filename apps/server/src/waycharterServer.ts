@@ -9,7 +9,12 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { load as loadYaml } from "js-yaml";
 import * as swaggerUi from "swagger-ui-express";
-import { getAddress, searchForAddress } from "../service";
+import {
+    getAddress,
+    getLocality,
+    searchForAddress,
+    searchForLocality,
+} from "../service";
 import { VERBOSE } from "../service/config";
 
 /**
@@ -106,6 +111,85 @@ type AddressLoaderParams = Record<string, string | number | undefined> & {
 type AddressCollectionParams = Record<string, string | number | undefined> & {
     page?: number | string;
     q?: string;
+};
+
+/**
+ * The locality search hit.
+ */
+type LocalitySearchHit = {
+    _id: string;
+    _score: number;
+    _source: {
+        display: string;
+        name: string;
+        localityPid: string;
+        stateAbbreviation?: string;
+        stateName?: string;
+        postcode?: string;
+        postcodes?: string[];
+        classCode?: string;
+        className?: string;
+    };
+};
+
+/**
+ * JSON:API resource for a locality autocomplete suggestion.
+ */
+type LocalitySuggestionResource = {
+    type: "locality-suggestion";
+    id: string;
+    attributes: {
+        display: string;
+        rank: number;
+    };
+    links: {
+        self: string;
+    };
+};
+
+/**
+ * JSON:API document for locality autocomplete results.
+ */
+type LocalityAutocompleteDocument = {
+    jsonapi: { version: string };
+    data: LocalitySuggestionResource[];
+    links: {
+        self: string;
+        first?: string;
+        prev?: string | null;
+        next?: string | null;
+        last?: string;
+    };
+    meta: {
+        total: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    };
+};
+
+/**
+ * The locality loader parameters.
+ */
+type LocalityLoaderParams = Record<string, string | number | undefined> & {
+    localityPid?: string;
+};
+
+/**
+ * The locality collection parameters.
+ */
+type LocalityCollectionParams = Record<string, string | number | undefined> & {
+    page?: number | string;
+    q?: string;
+};
+
+/**
+ * The result of a get locality request.
+ */
+type GetLocalityResult = {
+    json: unknown;
+    hash: string;
+    statusCode?: number;
 };
 
 const app = express();
@@ -347,6 +431,203 @@ async function loadAddressCollection(params: AddressCollectionParams): Promise<{
 }
 
 /**
+ * Maps a raw locality search hit into a JSON:API autocomplete resource.
+ *
+ * @param {LocalitySearchHit} hit - Search hit returned by the backing index.
+ * @param {number} maxScore - The maximum score for normalization.
+ * @returns {LocalitySuggestionResource} JSON:API resource for autocomplete.
+ */
+function mapLocalitySearchHitToResource(
+    hit: LocalitySearchHit,
+    maxScore: number,
+): LocalitySuggestionResource {
+    const localityId = hit._id.replace("/localities/", "");
+    // Normalize score to 0-1 range relative to the best match
+    const normalizedRank = maxScore > 0 ? hit._score / maxScore : 0;
+
+    return {
+        type: "locality-suggestion",
+        id: localityId,
+        attributes: {
+            display: hit._source.display,
+            rank: Math.round(normalizedRank * 100) / 100,
+        },
+        links: {
+            self: `/localities/${localityId}`,
+        },
+    };
+}
+
+/**
+ * Loads a single locality resource by its persistent identifier.
+ *
+ * @param {LocalityLoaderParams} params - Parameters supplied by WayCharter containing the locality PID.
+ * @returns {Promise<{ body: unknown; headers: Record<string, string>; status: number; }>} Payload ready for WayCharter response handling.
+ * @throws {Error} When a locality PID is not provided.
+ */
+async function loadLocalityItem({
+    localityPid,
+}: LocalityLoaderParams): Promise<{
+    body: unknown;
+    headers: Record<string, string>;
+    status: number;
+}> {
+    // Fail fast when a locality PID is missing to avoid an opaque 500 from downstream services.
+    if (typeof localityPid !== "string" || localityPid.length === 0) {
+        throw new Error("Locality PID is required to load a record.");
+    }
+
+    // Get the locality from the Elasticsearch index.
+    const { json, hash, statusCode } = (await getLocality(
+        localityPid,
+    )) as GetLocalityResult;
+
+    // Return the locality body, headers, and status code.
+    return {
+        body: json,
+        headers: {
+            etag: `"${version}-${hash}"`,
+            "cache-control": `public, max-age=${ONE_WEEK}`,
+        },
+        status: statusCode ?? 200,
+    };
+}
+
+/**
+ * Retrieves a paginated collection of localities matching the supplied query.
+ * Returns a JSON:API formatted document.
+ *
+ * @param {LocalityCollectionParams} params - Pagination and query parameters from WayCharter.
+ * @returns {Promise<{ body: LocalityAutocompleteDocument; hasMore: boolean; headers: Record<string, string>; }>} JSON:API collection response.
+ * @throws {Error} When the provided page value cannot be parsed as a number.
+ */
+async function loadLocalityCollection(
+    params: LocalityCollectionParams,
+): Promise<{
+    body: LocalityAutocompleteDocument;
+    hasMore: boolean;
+    headers: Record<string, string>;
+}> {
+    const { page, q } = params;
+
+    // Accept numeric strings from query params while rejecting non-numeric input.
+    const resolvedPage = Number(page ?? 0);
+    if (!Number.isFinite(resolvedPage)) {
+        throw new Error("Search page value must be numeric.");
+    }
+
+    // Build base URL for pagination links
+    const baseUrl = `/localities${q ? `?q=${encodeURIComponent(q)}` : ""}`;
+
+    // If the query is defined and longer than 1 character, search for localities.
+    if (q && q.length > 1) {
+        logger("Searching for localities with query:", q);
+        // Query length guard prevents expensive searches on very short strings.
+        const searchResult = (await searchForLocality(
+            q,
+            resolvedPage + 1,
+            pageSize,
+        )) as unknown as {
+            searchResponse: {
+                body: {
+                    hits: {
+                        hits: LocalitySearchHit[];
+                        total: { value: number };
+                    };
+                };
+            };
+            page: number;
+            size: number;
+            totalHits: number;
+        };
+
+        // Extract hits from the nested searchResponse structure
+        const hits = searchResult.searchResponse.body.hits.hits;
+        const totalHits = searchResult.totalHits;
+        const totalPages = Math.ceil(totalHits / pageSize);
+        const currentPage = resolvedPage + 1;
+
+        // Get max score for normalization (first hit typically has highest score)
+        const maxScore = hits.length > 0 ? hits[0]._score : 1;
+
+        // Map the search hits to JSON:API resources
+        const data = hits.map((hit) =>
+            mapLocalitySearchHitToResource(hit, maxScore),
+        );
+
+        // Build JSON:API document
+        const jsonApiDocument: LocalityAutocompleteDocument = {
+            jsonapi: { version: "1.1" },
+            data,
+            links: {
+                self: `${baseUrl}${currentPage > 1 ? `&page[number]=${currentPage}` : ""}`,
+                first: baseUrl,
+                ...(currentPage > 1 && {
+                    prev:
+                        currentPage === 2
+                            ? baseUrl
+                            : `${baseUrl}&page[number]=${currentPage - 1}`,
+                }),
+                ...(currentPage < totalPages && {
+                    next: `${baseUrl}&page[number]=${currentPage + 1}`,
+                }),
+                ...(totalPages > 0 && {
+                    last:
+                        totalPages === 1
+                            ? baseUrl
+                            : `${baseUrl}&page[number]=${totalPages}`,
+                }),
+            },
+            meta: {
+                total: totalHits,
+                page: currentPage,
+                pageSize,
+                totalPages,
+            },
+        };
+
+        // Create a hash of the body to use as the ETag.
+        const responseHash = createHash("md5")
+            .update(JSON.stringify(jsonApiDocument))
+            .digest("hex");
+
+        // Return the JSON:API document, hasMore, and headers.
+        return {
+            body: jsonApiDocument,
+            hasMore: currentPage < totalPages,
+            headers: {
+                etag: `"${version}-${responseHash}"`,
+                "cache-control": `public, max-age=${ONE_WEEK}`,
+            },
+        };
+    }
+
+    // Empty query responses still carry cache headers for intermediary caches.
+    const emptyDocument: LocalityAutocompleteDocument = {
+        jsonapi: { version: "1.1" },
+        data: [],
+        links: {
+            self: baseUrl,
+        },
+        meta: {
+            total: 0,
+            page: 1,
+            pageSize,
+            totalPages: 0,
+        },
+    };
+
+    return {
+        body: emptyDocument,
+        hasMore: false,
+        headers: {
+            etag: `"${version}"`,
+            "cache-control": `public, max-age=${ONE_WEEK}`,
+        },
+    };
+}
+
+/**
  * Starts the REST server and registers hypermedia resources.
  *
  * @returns {Promise<string>} The base URL where the server is listening.
@@ -427,6 +708,20 @@ export async function startRest2Server(): Promise<string> {
         ],
     });
 
+    // Register the localities collection.
+    const localitiesType = waycharter.registerCollection({
+        itemPath: "/:localityPid",
+        itemLoader: loadLocalityItem,
+        collectionPath: "/localities",
+        collectionLoader: loadLocalityCollection,
+        filters: [
+            {
+                rel: "https://addressr.io/rels/locality-search",
+                parameters: ["q"],
+            },
+        ],
+    });
+
     /**
      * Builds the API index resource, exposing links to available collections.
      *
@@ -437,9 +732,12 @@ export async function startRest2Server(): Promise<string> {
         links: unknown;
         headers: Record<string, string>;
     }> => {
+        // Combine links from both collections
+        const addressLinks = addressesType.additionalPaths as unknown[];
+        const localityLinks = localitiesType.additionalPaths as unknown[];
         return {
             body: {},
-            links: addressesType.additionalPaths,
+            links: [...addressLinks, ...localityLinks],
             headers: {
                 etag: `"${version}"`,
                 "cache-control": `public, max-age=${ONE_WEEK}`,

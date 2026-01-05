@@ -135,6 +135,20 @@ export async function runStartCommand(
             `       ${theme.dim("Get detailed information for a specific address")}`,
         );
         console.log();
+        console.log(
+            `  ${theme.secondary("GET")}  ${theme.muted("/localities?q=<query>")}`,
+        );
+        console.log(
+            `       ${theme.dim("Search for suburbs/postcodes matching the query")}`,
+        );
+        console.log();
+        console.log(
+            `  ${theme.secondary("GET")}  ${theme.muted("/localities/:id")}`,
+        );
+        console.log(
+            `       ${theme.dim("Get detailed information for a specific locality")}`,
+        );
+        console.log();
         console.log(`  ${theme.secondary("GET")}  ${theme.muted("/docs")}`);
         console.log(`       ${theme.dim("OpenAPI/Swagger documentation")}`);
         console.log();
