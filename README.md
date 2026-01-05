@@ -38,54 +38,221 @@ AddressKit is a comprehensive solution for managing and validating Australian ad
 - ✅ **Geocoding:** Geocoding of addresses to latitude and longitude coordinates
 - ✅ **Cross-platform:** Works on Windows, macOS, and Linux
 
+---
 # Table of Contents
 
-- [About](#about)
-- [Table of Contents](#table-of-contents)
 - [Installation](#installation)
+  - [Docker Compose](#docker-compose)
+  - [Using npm](#using-npm)
+- [Enabling Geocoding](#enabling-geocoding)
+- [Updating AddressKit](#updating-addresskit)
 - [CLI Reference](#cli-reference)
   - [Commands](#commands)
-  - [Load Command](#load-command)
-  - [Start Command](#start-command)
-  - [Version Command](#version-command)
-- [Quick Start](#quick-start)
-  - [Self Hosted](#self-hosted)
-  - [Docker Compose](#docker-compose)
+  - [`load` Command](#load-command)
+  - [`start` Command](#start-command)
+  - [`version` Command](#version-command)
+- [Environment Variables](#environment-variables)
 - [API Endpoints](#api-endpoints)
   - [Search / Autocomplete](#search--autocomplete)
   - [Get Address Details](#get-address-details)
   - [Error Responses](#error-responses)
-- [Configuration](#configuration)
 - [System Requirements](#system-requirements)
+  - [Supported Platforms](#supported-platforms)
 
+---
 # Installation
 
-Install AddressKit globally using npm:
+If you prefer to self-host AddressKit, you have two options for installation: using **[Docker Compose](#docker-compose) (recommended)**, or globally using [npm](#using-npm). 
+
+## Docker Compose
+
+The fastest way to get AddressKit running. No installation required - just good ol' Docker.
+
+#### 1. Create `docker-compose.yml` in your project root, and copy this into it:
+
+```yaml
+services:
+  opensearch:
+    image: opensearchproject/opensearch:1.3.2
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200" # This is the port that OpenSearch will listen on for requests from AddressKit
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/ >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  api:
+    image: bradleyhodges/addresskit:latest
+    environment:
+      - ELASTIC_HOST=opensearch
+      - ELASTIC_PORT=9200 # This tells AddressKit to connect to OpenSearch on port 9200 (see above)
+      - PORT=8080 # This is the port that the AddressKit REST API will listen on
+    ports:
+      - "8080:8080" # This is the port that AddressKit will listen on for requests from your application
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    command: ["addresskit", "start", "--daemon"]
+    restart: unless-stopped
+
+  loader:
+    image: bradleyhodges/addresskit:latest
+    environment:
+      - ELASTIC_HOST=opensearch
+      - ELASTIC_PORT=9200
+      # Uncomment to load specific states only (faster)
+      # - COVERED_STATES=NSW,VIC
+      # Uncomment to enable geocoding (requires more memory)
+      # - ADDRESSKIT_ENABLE_GEO=1
+    volumes:
+      - gnaf-data:/home/node/gnaf
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    command: ["addresskit", "load"]
+    restart: "no"
+
+volumes:
+  opensearch-data:
+  gnaf-data:
+```
+
+#### 2. Start OpenSearch and the AddressKit REST API server by running:
+
+```bash
+docker compose up -d opensearch api
+```
+
+#### 3. Load the G-NAF address data into the search index by running (this will take a while, depending on your internet connection and system performance):
+
+```bash
+# Load all Australian addresses (generally takes ~20-40 minutes)
+docker compose run --rm loader
+```
+
+> [!TIP] 
+> To load only specific states (faster), edit the `COVERED_STATES` environment variable in the compose file before running.
+
+#### 4. Once the G-NAF address data has been loaded, you can test the API by searching for addresses (autocomplete) by running:
+
+```bash
+# Search for addresses (autocomplete)
+curl -H "Accept: application/vnd.api+json" \
+  "http://localhost:8080/addresses?q=LEVEL+25,+TOWER+3"
+
+# Get detailed information for a specific address
+curl -H "Accept: application/vnd.api+json" \
+  "http://localhost:8080/addresses/GAVIC411711441"
+```
+
+The API returns JSON:API compliant responses. See [API Endpoints](#api-endpoints) for detailed examples.
+
+### Docker Compose Services
+
+| Service | Description | Default Port |
+|---------|-------------|------|
+| `opensearch` | Search backend | 9200 |
+| `api` | REST API server | 8080 |
+| `loader` | G-NAF data loader (run once) | - |
+
+## Using npm
+
+#### 1. Ensure you have Node.js >= 24.0.0 installed. You can check your Node.js version by running:
+
+```bash
+node --version
+```
+
+#### 2. Install the latest version of the AddressKit package globally using npm:
 
 ```bash
 npm install -g @bradleyhodges/addresskit
 ```
 
-Or using yarn:
-
-```bash
-yarn global add @bradleyhodges/addresskit
-```
-
-Or using pnpm:
-
-```bash
-pnpm add -g @bradleyhodges/addresskit
-```
-
-After installation, the `addresskit` command will be available globally in your terminal.
-
-**Verify Installation:**
+After installation, the `addresskit` command will be available globally in your terminal. Verify the installation by running:
 
 ```bash
 addresskit --version
 ```
 
+#### 3. AddressKit requires OpenSearch (the search and indexing backend used by AddressKit) to be running - this is provided by the AddressKit Docker image. If you don't already have an OpenSearch instance running, you can start one by running:
+
+```bash
+docker pull opensearchproject/opensearch:1.3.20
+docker run -p 9200:9200 -p 9300:9300 \
+  -e "discovery.type=single-node" \
+  -e "plugins.security.disabled=true" \
+  opensearchproject/opensearch:1.3.20
+```
+
+#### 4. Configure AddressKit by creating a `.env` file in the root of your project and adding the following variables ([see below](#environment-variables) for all supported environment variables):
+
+```env
+ELASTIC_HOST=opensearch
+ELASTIC_PORT=9200
+ELASTIC_PROTOCOL=http
+ADDRESSKIT_ENABLE_GEO=0 # disable geocoding support (requires more memory) by default
+```
+
+#### 5. Start the AddressKit API server by running:
+
+```bash
+addresskit start
+```
+
+#### 6. Load the G-NAF address data into the search index by running:
+
+```bash
+addresskit load
+```
+
+> [!NOTE]
+> If you are using AddressKit for the first time, you will need to load the G-NAF address data into the search index. This will take a while, depending on the size of the G-NAF dataset. Read more about the load command [here](#load-command).
+
+---
+# Enabling Geocoding
+
+Geocoding is an optional feature that can be enabled by setting the `ADDRESSKIT_ENABLE_GEO` environment variable to `1`. This will enable geocoding of addresses to latitude and longitude coordinates. Note that geocoding requires more memory, and is disabled by default. To enable geocoding, add the following to your `.env` or `docker-compose.yml` file:
+
+```env
+ADDRESSKIT_ENABLE_GEO=1
+NODE_OPTIONS=--max_old_space_size=8196 # This is the maximum memory allocation for the Node.js process. Adjust this value based on your system's available memory.
+```
+
+> [!IMPORTANT] Geocoding requires more memory
+> With geocoding enabled, indexing takes longer and requires more memory (8GB recommended). If you are experiencing memory issues, you can adjust the `NODE_OPTIONS` value to allocate more memory to the Node.js process. You can read more about the `NODE_OPTIONS` environment variable [here](https://nodejs.org/api/cli.html#node_optionsoptions).
+
+---
+# Updating AddressKit
+
+AddressKit is updated regularly to fix bugs and add new features. You can update AddressKit by pulling the latest Docker image:
+
+```bash
+docker pull bradleyhodges/addresskit:latest
+```
+
+Or, if you are using npm, by running:
+
+```bash
+npm install -g @bradleyhodges/addresskit
+```
+
+In addition to keeping AddressKit updated, you should regularly update the G-NAF address data to ensure you have the latest addresses. Updates to the G-NAF data are released every 3 months. To automate this chore, you could set up a cron job to keep AddressKit updated. For example, in Linux/macOS, you could add the following to your `crontab`:
+
+```bash
+# Run on the 1st of every month at 3am
+0 3 1 * * addresskit load --clear # Note: passing the --clear flag will clear the index before loading the latest data, which may cause some downtime. Use with caution.
+```
+
+---
 # CLI Reference
 
 AddressKit provides a beautiful, intuitive command-line interface for managing your address validation service.
@@ -123,7 +290,7 @@ Commands:
 | `addresskit version` | Display version and environment information |
 | `addresskit help` | Display help information |
 
-## Load Command
+## `load` Command
 
 Downloads the latest G-NAF dataset from data.gov.au, extracts it, and indexes all addresses into your OpenSearch instance.
 
@@ -174,7 +341,7 @@ addresskit load -d
 | `VIC` | Victoria |
 | `WA` | Western Australia |
 
-## Start Command
+## `start` Command
 
 Starts the REST API server for address search and validation.
 
@@ -206,7 +373,7 @@ addresskit start -d
 addresskit start -d -p 9000
 ```
 
-## Version Command
+## `version` Command
 
 Displays detailed version and environment information.
 
@@ -214,221 +381,32 @@ Displays detailed version and environment information.
 addresskit version
 ```
 
-# Quick Start
+---
+# Environment Variables
 
-## Self Hosted
-
-### 1. Install AddressKit
-
-```bash
-npm install -g @bradleyhodges/addresskit
-```
-
-### 2. Start OpenSearch
-
-```bash
-docker pull opensearchproject/opensearch:1.3.20
-docker run -p 9200:9200 -p 9300:9300 \
-  -e "discovery.type=single-node" \
-  -e "plugins.security.disabled=true" \
-  opensearchproject/opensearch:1.3.20
-```
-
-### 3. Configure Environment Variables
-
-**Linux/macOS:**
-```bash
-export ELASTIC_PORT=9200
-export ELASTIC_HOST=localhost
-```
-
-**Windows (PowerShell):**
-```powershell
-$env:ELASTIC_PORT = "9200"
-$env:ELASTIC_HOST = "localhost"
-```
-
-**Windows (Command Prompt):**
-```cmd
-set ELASTIC_PORT=9200
-set ELASTIC_HOST=localhost
-```
-
-### 4. Load Address Data
-
-In a new terminal window:
-
-```bash
-# Load all states (takes approximately 1 hour for 13+ million addresses)
-addresskit load
-
-# Or load specific states for faster initial setup
-addresskit load --states VIC,NSW
-```
-
-**Optional: Enable Geocoding**
-
-```bash
-# Linux/macOS
-export ADDRESSKIT_ENABLE_GEO=1
-export NODE_OPTIONS=--max_old_space_size=8196
-addresskit load --geo
-
-# Windows (PowerShell)
-$env:ADDRESSKIT_ENABLE_GEO = "1"
-$env:NODE_OPTIONS = "--max_old_space_size=8196"
-addresskit load --geo
-```
-
-> **Note:** With geocoding enabled, indexing takes longer and requires more memory (8GB recommended).
-
-### 5. Start the API Server
-
-In another terminal window:
-
-```bash
-addresskit start
-```
-
-Or specify a custom port:
-
-```bash
-addresskit start --port 3000
-```
-
-### 6. Test the API
-
-```bash
-# Search for addresses (autocomplete)
-curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/addresses?q=LEVEL+25,+TOWER+3"
-
-# Get detailed information for a specific address
-curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/addresses/GAVIC411711441"
-```
-
-The API returns JSON:API compliant responses. See [API Endpoints](#api-endpoints) for detailed examples.
-
-### 7. Keep Data Updated
-
-An updated G-NAF is released every 3 months. Set up a cron job to keep AddressKit updated:
-
-**Linux/macOS (crontab):**
-```bash
-# Run on the 1st of every month at 3am
-0 3 1 * * addresskit load --clear
-```
-
-**Windows (Task Scheduler):**
-Create a scheduled task to run `addresskit load --clear` monthly.
-
-## Docker Compose
-
-The fastest way to get AddressKit running. No installation required - just good ol' Docker.
-
-### 1. Create `docker-compose.yml`
-
-Copy this into a new file called `docker-compose.yml`:
-
-```yaml
-services:
-  opensearch:
-    image: opensearchproject/opensearch:1.3.2
-    environment:
-      - discovery.type=single-node
-      - plugins.security.disabled=true
-      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
-    ports:
-      - "9200:9200"
-    volumes:
-      - opensearch-data:/usr/share/opensearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/ >/dev/null || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 40
-    restart: unless-stopped
-
-  api:
-    image: bradleyhodges/addresskit:latest
-    environment:
-      - ELASTIC_HOST=opensearch
-      - ELASTIC_PORT=9200
-      - PORT=8080
-    ports:
-      - "8080:8080"
-    depends_on:
-      opensearch:
-        condition: service_healthy
-    command: ["addresskit", "start", "--daemon"]
-    restart: unless-stopped
-
-  loader:
-    image: bradleyhodges/addresskit:latest
-    environment:
-      - ELASTIC_HOST=opensearch
-      - ELASTIC_PORT=9200
-      # Uncomment to load specific states only (faster)
-      # - COVERED_STATES=NSW,VIC
-      # Uncomment to enable geocoding (requires more memory)
-      # - ADDRESSKIT_ENABLE_GEO=1
-    volumes:
-      - gnaf-data:/home/node/gnaf
-    depends_on:
-      opensearch:
-        condition: service_healthy
-    command: ["addresskit", "load"]
-    restart: "no"
-
-volumes:
-  opensearch-data:
-  gnaf-data:
-```
-
-### 2. Start OpenSearch and API
-
-```bash
-docker compose up -d opensearch api
-```
-
-### 3. Load Address Data
-
-```bash
-# Load all Australian addresses (takes ~20-40 minutes)
-docker compose run --rm loader
-```
-
-> **Tip:** To load only specific states (faster), edit the `COVERED_STATES` environment variable in the compose file before running.
-
-### 4. Test the API
-
-```bash
-curl "http://localhost:8080/addresses?q=300+barangaroo"
-```
-
-### 5. View Logs
-
-```bash
-docker compose logs -f api
-```
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `COVERED_STATES` | Comma-separated states to load (e.g., `NSW,VIC`) | All states |
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `ELASTIC_HOST` | OpenSearch host | `localhost` |
+| `ELASTIC_PORT` | OpenSearch port | `9200` |
+| `ELASTIC_PROTOCOL` | Protocol (`http` or `https`) | `http` |
+| `ELASTIC_USERNAME` | OpenSearch username (optional) | |
+| `ELASTIC_PASSWORD` | OpenSearch password (optional) | |
+| `PORT` | API server port | `8080` |
+| `ES_INDEX_NAME` | OpenSearch index name | `addresskit` |
+| `COVERED_STATES` | Comma-separated list of states to load | All states |
 | `ADDRESSKIT_ENABLE_GEO` | Enable geocoding (`1` to enable) | Disabled |
-| `ES_CLEAR_INDEX` | Clear index before loading (`true`) | `false` |
+| `PAGE_SIZE` | Default results per page | `8` |
+| `ADDRESSKIT_ACCESS_CONTROL_ALLOW_ORIGIN` | CORS allowed origin | |
+| `ADDRESSKIT_ACCESS_CONTROL_EXPOSE_HEADERS` | CORS exposed headers | |
+| `ADDRESSKIT_ACCESS_CONTROL_ALLOW_HEADERS` | CORS allowed headers | |
+| `ADDRESSKIT_INDEX_TIMEOUT` | Index operation timeout | `30s` |
+| `ADDRESSKIT_INDEX_BACKOFF` | Initial backoff delay (ms) | `1000` |
+| `ADDRESSKIT_INDEX_BACKOFF_INCREMENT` | Backoff increment (ms) | `1000` |
+| `ADDRESSKIT_INDEX_BACKOFF_MAX` | Maximum backoff delay (ms) | `10000` |
 
-### Services
+> **Note:** When adjusting `PAGE_SIZE`, consider how quickly you want initial results returned. For most use cases, leave it at 8 and use pagination for additional results. Why 8? [Mechanical Sympathy](https://dzone.com/articles/mechanical-sympathy).
 
-| Service | Description | Port |
-|---------|-------------|------|
-| `opensearch` | Search backend | 9200 |
-| `api` | REST API server | 8080 |
-| `loader` | G-NAF data loader (run once) | - |
-
+---
 # API Endpoints
 
 The AddressKit API conforms to the [JSON:API v1.1 specification](https://jsonapi.org/format/). All responses use the `application/vnd.api+json` media type.
@@ -613,55 +591,19 @@ All error responses follow the JSON:API error format:
 | `503` | Service Unavailable - OpenSearch unavailable |
 | `504` | Gateway Timeout - Query timeout |
 
-# Configuration
-
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `ELASTIC_HOST` | OpenSearch host | `localhost` |
-| `ELASTIC_PORT` | OpenSearch port | `9200` |
-| `ELASTIC_PROTOCOL` | Protocol (`http` or `https`) | `http` |
-| `ELASTIC_USERNAME` | OpenSearch username (optional) | |
-| `ELASTIC_PASSWORD` | OpenSearch password (optional) | |
-| `PORT` | API server port | `8080` |
-| `ES_INDEX_NAME` | OpenSearch index name | `addresskit` |
-| `COVERED_STATES` | Comma-separated list of states to load | All states |
-| `ADDRESSKIT_ENABLE_GEO` | Enable geocoding (`1` to enable) | Disabled |
-| `PAGE_SIZE` | Default results per page | `8` |
-| `ADDRESSKIT_ACCESS_CONTROL_ALLOW_ORIGIN` | CORS allowed origin | |
-| `ADDRESSKIT_ACCESS_CONTROL_EXPOSE_HEADERS` | CORS exposed headers | |
-| `ADDRESSKIT_ACCESS_CONTROL_ALLOW_HEADERS` | CORS allowed headers | |
-| `ADDRESSKIT_INDEX_TIMEOUT` | Index operation timeout | `30s` |
-| `ADDRESSKIT_INDEX_BACKOFF` | Initial backoff delay (ms) | `1000` |
-| `ADDRESSKIT_INDEX_BACKOFF_INCREMENT` | Backoff increment (ms) | `1000` |
-| `ADDRESSKIT_INDEX_BACKOFF_MAX` | Maximum backoff delay (ms) | `10000` |
-
-> **Note:** When adjusting `PAGE_SIZE`, consider how quickly you want initial results returned. For most use cases, leave it at 8 and use pagination for additional results. Why 8? [Mechanical Sympathy](https://dzone.com/articles/mechanical-sympathy).
-
+---
 # System Requirements
 
-## OpenSearch
+AddressKit is designed to be lightweight and efficient. It is built to run on modest hardware, and is designed to be self-hosted on your own infrastructure. System requirements are as follows:
 
-- OpenSearch >= 1.2.4
-- Memory: 1.4 GiB minimum
-- CPU: 1 core
+- **Memory:** 2GB (4GB+ recommended)
+- **Processor:** 1 core (2+ cores recommended)
+- **Disk:** 10 GB
 
-## AddressKit Loader
+These requirements do not include the memory required by the base operating system or other processes running on the same machine. These requirements represent the minimum requirements for AddressKit to run, and may vary depending on your use case.
 
-### Default (without geocoding)
-- Node.js >= 20.0.0
-- Memory: 1 GiB
-- CPU: 1 core
-
-### With Geocoding Enabled
-- Node.js >= 20.0.0
-- Memory: 8 GiB
-- CPU: 4 cores
-
-## AddressKit Server
-
-- Node.js >= 20.0.0
-- Memory: 64 MiB (128 MiB+ recommended)
-- CPU: 1 core
+> [!NOTE]
+> If you choose to enable geocoding, you will need to increase the memory requirements to 4GB or more. We recommend at least 8GB of available memory for geocoding.
 
 ## Supported Platforms
 
