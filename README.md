@@ -120,7 +120,7 @@ services:
     environment:
       - ELASTIC_HOST=opensearch
       - ELASTIC_PORT=9200
-      - COVERED_STATES=${COVERED_STATES:-ACT}
+      - COVERED_STATES=${COVERED_STATES:-}
       # - ADDRESSKIT_ENABLE_GEO=true  # Uncomment to enable geocoding
     volumes:
       - gnaf-data:/home/node/gnaf
