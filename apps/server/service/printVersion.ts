@@ -18,7 +18,7 @@ export function printVersion(): void {
         environment = `${environment}|(set NODE_ENV to 'production' in production environments)`;
 
     // Get the port from the process environment variables
-    const port = process.env.PORT || 8080;
+    const port = process.env.PORT || 7234;
 
     // Print the version, environment, and port
     console.log(`Version: ${version}`);

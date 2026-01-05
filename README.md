@@ -98,16 +98,16 @@ services:
     environment:
       - ELASTIC_HOST=opensearch
       - ELASTIC_PORT=9200
-      - PORT=8080
+      - PORT=7234
     ports:
-      - "8080:8080"
+      - "7234:7234"
     depends_on:
       opensearch:
         condition: service_healthy
     command: ["addresskit", "start", "--daemon"]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/addresses?q=test >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:7234/addresses?q=test >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -177,11 +177,11 @@ docker compose --profile loader run --rm loader
 ```bash
 # Search for addresses (autocomplete)
 curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/addresses?q=LEVEL+25,+TOWER+3"
+  "http://localhost:7234/addresses?q=LEVEL+25,+TOWER+3"
 
 # Get detailed information for a specific address
 curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/addresses/GAVIC411711441"
+  "http://localhost:7234/addresses/GAVIC411711441"
 ```
 
 The API returns JSON:API compliant responses. See [API Endpoints](#api-endpoints) for detailed examples.
@@ -199,7 +199,7 @@ Access the OpenSearch Dashboards at http://localhost:5601 to monitor your index 
 | Service | Description | Default Port | Profile |
 |---------|-------------|--------------|---------|
 | `opensearch` | Search backend | 9200 | default |
-| `api` | REST API server | 8080 | default |
+| `api` | REST API server | 7234 | default |
 | `loader` | G-NAF data loader | - | `loader` |
 | `dashboards` | OpenSearch Dashboards | 5601 | `monitoring` |
 
@@ -218,7 +218,7 @@ ADDRESSKIT_ENABLE_GEO=true
 OPENSEARCH_HEAP=2g
 
 # API server port
-API_PORT=8080
+API_PORT=7234
 
 # CORS origin (set to your domain in production)
 CORS_ORIGIN=https://example.com
@@ -418,13 +418,13 @@ addresskit start [options]
 | Option | Description | Default |
 |--------|-------------|---------|
 | `-d, --daemon` | Run in background mode (suppresses terminal output) | `false` |
-| `-p, --port <port>` | Port to listen on | `8080` or `$PORT` |
+| `-p, --port <port>` | Port to listen on | `7234` or `$PORT` |
 | `-h, --help` | Display help for the start command | |
 
 **Examples:**
 
 ```bash
-# Start server on default port (8080)
+# Start server on default port (7234)
 addresskit start
 
 # Start server on custom port
@@ -457,7 +457,7 @@ addresskit version
 | `ELASTIC_PROTOCOL` | Protocol (`http` or `https`) | `http` |
 | `ELASTIC_USERNAME` | OpenSearch username (optional) | |
 | `ELASTIC_PASSWORD` | OpenSearch password (optional) | |
-| `PORT` | API server port | `8080` |
+| `PORT` | API server port | `7234` |
 | `ES_INDEX_NAME` | OpenSearch index name for addresses | `addresskit` |
 | `ES_LOCALITY_INDEX_NAME` | OpenSearch index name for localities | `addresskit-localities` |
 | `NODE_ENV` | Environment (`production` or `development`) | `production` |
@@ -534,7 +534,7 @@ Search for addresses matching a query string. Returns lightweight autocomplete s
 
 ```bash
 curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/addresses?q=300+barangaroo"
+  "http://localhost:7234/addresses?q=300+barangaroo"
 ```
 
 **Response:**
@@ -592,7 +592,7 @@ Retrieve comprehensive details for a specific address by its G-NAF Persistent Id
 
 ```bash
 curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/addresses/GANSW716635811"
+  "http://localhost:7234/addresses/GANSW716635811"
 ```
 
 **Response:**
@@ -679,7 +679,7 @@ Search for localities (suburbs/postcodes) matching a query string. Returns light
 
 ```bash
 curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/localities?q=sydney"
+  "http://localhost:7234/localities?q=sydney"
 ```
 
 **Response:**
@@ -737,7 +737,7 @@ Retrieve comprehensive details for a specific locality by its G-NAF Locality Per
 
 ```bash
 curl -H "Accept: application/vnd.api+json" \
-  "http://localhost:8080/localities/NSW1234"
+  "http://localhost:7234/localities/NSW1234"
 ```
 
 **Response:**

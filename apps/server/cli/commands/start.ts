@@ -62,7 +62,7 @@ export async function runStartCommand(
     options: StartCommandOptions,
 ): Promise<void> {
     const isDaemon = getDaemonMode();
-    const port = options.port || process.env.PORT || "8080";
+    const port = options.port || process.env.PORT || "7234";
 
     // Enable debug loggers if not in daemon mode
     if (!isDaemon && process.env.DEBUG === undefined) {

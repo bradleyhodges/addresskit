@@ -6,7 +6,7 @@
 set -e
 
 # Configuration with sensible defaults
-HEALTH_CHECK_PORT="${PORT:-8080}"
+HEALTH_CHECK_PORT="${PORT:-7234}"
 HEALTH_CHECK_PATH="${ADDRESSKIT_HEALTH_PATH:-/addresses?q=test}"
 HEALTH_CHECK_TIMEOUT="${ADDRESSKIT_HEALTH_TIMEOUT:-5}"
 

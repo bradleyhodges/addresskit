@@ -141,7 +141,7 @@ export declare const THIRTY_DAYS_MS: number;
 /**
  * HTTP port for the API server.
  *
- * @default 8080
+ * @default 7234
  * @env PORT
  */
 export declare const SERVER_PORT: number;

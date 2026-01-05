@@ -5,7 +5,7 @@
 #   1. Copy .env.example to .env and configure
 #   2. docker compose up -d
 #   3. docker compose run --rm loader  (first time only, to load G-NAF data)
-#   4. Access API at http://localhost:8080/addresses?q=123+main
+#   4. Access API at http://localhost:7234/addresses?q=123+main
 #
 # Profiles:
 #   - default: OpenSearch + API (for when data is already loaded)
@@ -148,7 +148,7 @@ services:
       - ELASTIC_USERNAME=${ELASTIC_USERNAME:-}
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-}
       # Server configuration
-      - PORT=8080
+      - PORT=7234
       - NODE_ENV=${NODE_ENV:-production}
       # Index configuration
       - ES_INDEX_NAME=${ES_INDEX_NAME:-addresskit}
@@ -165,11 +165,11 @@ services:
       - VERBOSE=${VERBOSE:-false}
       - DEBUG=${DEBUG:-api,error}
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "${API_PORT:-7234}:7234"
     depends_on:
       opensearch:
         condition: service_healthy
-    command: ["addresskit", "start", "--daemon", "--port", "8080"]
+    command: ["addresskit", "start", "--daemon", "--port", "7234"]
     restart: unless-stopped
     networks:
       - addresskit-internal

@@ -13,7 +13,7 @@
  *   ELASTIC_PROTOCOL=http
  *   ELASTIC_HOST=localhost
  *   ELASTIC_PORT=9200
- *   API_URL=http://localhost:8080
+ *   API_URL=http://localhost:7234
  *   SEED_FIXTURES=1
  *   INDEX_NAME=addresskit_smoke
  */
@@ -22,7 +22,7 @@ const DEFAULTS = {
     ELASTIC_PROTOCOL: process.env.ELASTIC_PROTOCOL || "http",
     ELASTIC_HOST: process.env.ELASTIC_HOST || "localhost",
     ELASTIC_PORT: Number(process.env.ELASTIC_PORT || 9200),
-    API_URL: process.env.API_URL || "http://localhost:8080",
+    API_URL: process.env.API_URL || "http://localhost:7234",
     SEED_FIXTURES: process.env.SEED_FIXTURES === "1",
     INDEX_NAME: process.env.INDEX_NAME || "addresskit_smoke",
 };

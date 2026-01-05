@@ -30,7 +30,7 @@ declare global {
 
 // Create the express app and set the server port
 const app = express();
-const serverPort = Number.parseInt(process.env.PORT ?? "8080", 10);
+const serverPort = Number.parseInt(process.env.PORT ?? "7234", 10);
 
 /**
  * The logger for the API.

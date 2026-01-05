@@ -180,7 +180,7 @@ export function getLocalities(
     // Construct the base URL for HATEOAS link generation
     const url = new URL(
         request.url,
-        `http://localhost:${process.env.PORT ?? "8080"}`,
+        `http://localhost:${process.env.PORT ?? "7234"}`,
     );
 
     // Fetch matching localities from OpenSearch

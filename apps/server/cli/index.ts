@@ -106,7 +106,7 @@ program
     .option(
         "-p, --port <port>",
         "Port to listen on",
-        process.env.PORT || "8080",
+        process.env.PORT || "7234",
     )
     .action(async (options) => {
         // Set daemon mode based on CLI flag

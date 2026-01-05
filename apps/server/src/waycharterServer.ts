@@ -197,7 +197,7 @@ const app = express();
 const ONE_DAY = 60 * 60 * 24;
 const ONE_WEEK = ONE_DAY * 7;
 
-const serverPort = Number(process.env.PORT ?? 8080);
+const serverPort = Number(process.env.PORT ?? 7234);
 const logger = debug("api");
 const error = debug("error");
 

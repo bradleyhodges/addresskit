@@ -208,10 +208,10 @@ export const THIRTY_DAYS_MS = ONE_DAY_MS * 30;
 /**
  * HTTP port for the API server.
  *
- * @default 8080
+ * @default 7234
  * @env PORT
  */
-export const SERVER_PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
+export const SERVER_PORT = Number.parseInt(process.env.PORT ?? "7234", 10);
 
 /**
  * CORS Access-Control-Allow-Origin header value.

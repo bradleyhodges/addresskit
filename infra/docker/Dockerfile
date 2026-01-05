@@ -3,7 +3,7 @@
 # Multi-stage, security-hardened build for the address validation API
 # ─────────────────────────────────────────────────────────────────────────────
 # Build: docker build --build-arg PACKAGE_TGZ=... -t addresskit .
-# Run:   docker run -p 8080:8080 addresskit
+# Run:   docker run -p 7234:7234 addresskit
 # ─────────────────────────────────────────────────────────────────────────────
 
 ARG BASE_IMAGE=node:24-alpine
@@ -138,7 +138,7 @@ ENV ADDRESSKIT_INDEX_TIMEOUT="300s" \
     ADDRESSKIT_INDEX_MAX_RETRIES="10"
 
 # Server configuration
-ENV PORT="8080" \
+ENV PORT="7234" \
     NODE_ENV="production"
 
 # Caching configuration (optimized for production)
@@ -171,7 +171,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Expose the API port (documentation only, use -p to publish)
-EXPOSE 8080
+EXPOSE 7234
 
 # Volume for persistent G-NAF data
 VOLUME ["/home/node/gnaf"]

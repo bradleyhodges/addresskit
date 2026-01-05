@@ -109,7 +109,7 @@ services:
       - ELASTIC_PORT=9200
       - ELASTIC_PROTOCOL=http
       # Server configuration
-      - PORT=8080
+      - PORT=7234
       - NODE_ENV=development
       # Index configuration
       - ES_INDEX_NAME=${ES_INDEX_NAME:-addresskit}
@@ -123,11 +123,11 @@ services:
       - VERBOSE=${VERBOSE:-true}
       - DEBUG=api,error
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "${API_PORT:-7234}:7234"
     depends_on:
       opensearch:
         condition: service_healthy
-    command: ["addresskit", "start", "--daemon", "--port", "8080"]
+    command: ["addresskit", "start", "--daemon", "--port", "7234"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "/home/node/healthcheck.sh"]
