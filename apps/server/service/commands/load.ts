@@ -5,7 +5,6 @@ import * as stream from "node:stream";
 import { initIndex } from "@repo/addresskit-client/elasticsearch";
 import download from "@repo/addresskit-core/utils/stream-down";
 import directoryExists from "directory-exists";
-import { glob } from "glob-promise";
 import * as got from "got";
 import * as Papa from "papaparse";
 import * as unzip from "unzip-stream";
@@ -1870,41 +1869,67 @@ export const loadCommandEntry = async ({
         }
 
         // Step 4: Find the G-NAF subdirectory within the extracted contents
+        // Using native fs methods for reliable bundled execution (glob-promise has bundling issues)
         const locateSpinner = startSpinner("Locating G-NAF data directory...");
-        const gnafDirResults = await glob("**/G-NAF/", { cwd: unzipped });
-        if (VERBOSE) logger("gnafDir results", gnafDirResults);
 
-        // Filter out any undefined/null entries and get valid paths
-        const gnafDir = gnafDirResults.filter(
-            (dir: string | undefined): dir is string =>
-                typeof dir === "string" && dir.length > 0,
-        );
-        if (VERBOSE) logger("gnafDir filtered", gnafDir);
+        /**
+         * Recursively finds a directory by name within a base directory.
+         *
+         * @param baseDir - The base directory to search in.
+         * @param targetName - The name of the directory to find.
+         * @param maxDepth - Maximum depth to search (default 3).
+         * @returns The relative path to the found directory, or undefined if not found.
+         */
+        const findDirectory = async (
+            baseDir: string,
+            targetName: string,
+            maxDepth = 3,
+        ): Promise<string | undefined> => {
+            const searchDir = async (
+                currentDir: string,
+                depth: number,
+            ): Promise<string | undefined> => {
+                if (depth > maxDepth) return undefined;
+
+                const entries = await fsp.readdir(currentDir, {
+                    withFileTypes: true,
+                });
+                for (const entry of entries) {
+                    if (entry.isDirectory()) {
+                        if (entry.name === targetName) {
+                            // Return relative path from baseDir
+                            return path.relative(
+                                baseDir,
+                                path.join(currentDir, entry.name),
+                            );
+                        }
+                        // Recurse into subdirectories
+                        const found = await searchDir(
+                            path.join(currentDir, entry.name),
+                            depth + 1,
+                        );
+                        if (found) return found;
+                    }
+                }
+                return undefined;
+            };
+            return searchDir(baseDir, 0);
+        };
+
+        const gnafDirPath = await findDirectory(unzipped, "G-NAF");
+        if (VERBOSE) logger("gnafDir found", gnafDirPath);
 
         // Verify the G-NAF directory was found
-        if (gnafDir.length === 0) {
+        if (!gnafDirPath) {
             failSpinner("G-NAF directory not found");
             throw new Error(
                 `Cannot find 'G-NAF' directory in Data dir '${unzipped}'`,
             );
         }
-
-        // Get the first valid G-NAF directory path
-        const gnafDirPath = gnafDir[0];
-        if (!gnafDirPath) {
-            failSpinner("G-NAF directory path is invalid");
-            throw new Error(
-                `G-NAF directory path is undefined in Data dir '${unzipped}'`,
-            );
-        }
         succeedSpinner("G-NAF data directory located");
 
         // Get the parent directory of the G-NAF folder (this is the main data directory)
-        // Remove trailing slash if present before getting parent directory
-        const gnafDirNormalized = gnafDirPath.endsWith("/")
-            ? gnafDirPath.slice(0, -1)
-            : gnafDirPath;
-        const mainDirectory = path.dirname(`${unzipped}/${gnafDirNormalized}`);
+        const mainDirectory = path.dirname(`${unzipped}/${gnafDirPath}`);
         if (VERBOSE) logger("Main Data dir", mainDirectory);
 
         // Log resource state before the intensive loading phase
