@@ -40617,8 +40617,8 @@ var init_service = __esm({
               confidence: innerStruct.confidence ?? struct.confidence
             }
           },
-          ...(innerStruct.geo ?? struct.geo) !== void 0 && {
-            geo: innerStruct.geo ?? struct.geo
+          ...(innerStruct.geocoding ?? struct.geocoding ?? innerStruct.geo ?? struct.geo) !== void 0 && {
+            geo: innerStruct.geocoding ?? struct.geocoding ?? innerStruct.geo ?? struct.geo
           }
         };
         const resource = buildAddressResource(addressId, attributes);
